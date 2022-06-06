@@ -1632,3 +1632,45 @@ function upgrade_fix_file_timestamps() {
 
     $recordset->close();
 }
+
+/**
+ * Moves cohort files from system and category contexts to cohort
+ * contexts with itemid 0.
+ *
+ * @return void
+ */
+function upgrade_migrate_cohort_context(): void {
+    global $DB;
+
+    $mover = function(stdClass $cohort): void {
+        $fs = get_file_storage();
+        $catcontext = \core\context::instance_by_id($cohort->contextid, IGNORE_MISSING);
+        if (!$catcontext) {
+            return;
+        }
+        $cohotcontext = \core\context\cohort::instance($cohort->id);
+        $oldfiles = $fs->get_area_files($catcontext->id, 'cohort', 'description', $cohort->id, 'id', false);
+        foreach ($oldfiles as $oldfile) {
+            $filerecord = new stdClass();
+            $filerecord->contextid = $cohotcontext->id;
+            $filerecord->itemid = 0;
+            $fs->create_file_from_storedfile($filerecord, $oldfile);
+        }
+        $fs->delete_area_files($catcontext->id, 'cohort', 'description', $cohort->id);
+    };
+
+    $sql = "SELECT DISTINCT f.itemid
+              FROM {files} f
+             WHERE component = 'cohort' AND filearea = 'description' AND itemid > 0
+          ORDER BY itemid ASC";
+    $cohorts = $DB->get_fieldset_sql($sql, []);
+    foreach ($cohorts as $cid) {
+        $cohort = $DB->get_record('cohort', ['id' => $cid]);
+        if (!$cohort) {
+            continue;
+        }
+        $trans = $DB->start_delegated_transaction();
+        $mover($cohort);
+        $trans->allow_commit();
+    }
+}

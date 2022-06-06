@@ -18,10 +18,6 @@ namespace core_cohort;
 
 defined('MOODLE_INTERNAL') || die();
 
-global $CFG;
-require_once("$CFG->dirroot/cohort/lib.php");
-
-
 /**
  * Cohort library tests.
  *
@@ -31,6 +27,11 @@ require_once("$CFG->dirroot/cohort/lib.php");
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class lib_test extends \advanced_testcase {
+    protected function setUp(): void {
+        global $CFG;
+        require_once("$CFG->dirroot/cohort/lib.php");
+        parent::setUp();
+    }
 
     public function test_cohort_add_cohort() {
         global $DB;
@@ -50,12 +51,65 @@ class lib_test extends \advanced_testcase {
         $newcohort = $DB->get_record('cohort', array('id'=>$id));
         $this->assertEquals($cohort->contextid, $newcohort->contextid);
         $this->assertSame($cohort->name, $newcohort->name);
+        $this->assertSame($cohort->idnumber, $newcohort->idnumber);
         $this->assertSame($cohort->description, $newcohort->description);
         $this->assertEquals($cohort->descriptionformat, $newcohort->descriptionformat);
         $this->assertNotEmpty($newcohort->timecreated);
         $this->assertSame($newcohort->component, '');
         $this->assertSame($newcohort->theme, '');
         $this->assertSame($newcohort->timecreated, $newcohort->timemodified);
+        $cohortcontext = \context_cohort::instance($cohort->id);
+        $this->assertSame($newcohort->id, $cohortcontext->instanceid);
+        $this->assertSame('/' . SYSCONTEXTID . '/' . $cohortcontext->id, $cohortcontext->path);
+
+        // Test category contexts.
+        $category = $this->getDataGenerator()->create_category();
+        $categorycontext = \context_coursecat::instance($category->id);
+        $cohort = new \stdClass();
+        $cohort->contextid = $categorycontext->id;
+        $cohort->name = 'test cohort 2';
+        $id = cohort_add_cohort($cohort);
+        $newcohort = $DB->get_record('cohort', ['id' => $id]);
+        $this->assertSame($cohort->idnumber, $newcohort->idnumber);
+        $cohortcontext = \context_cohort::instance($cohort->id);
+        $this->assertSame($newcohort->id, $cohortcontext->instanceid);
+        $this->assertSame('/' . SYSCONTEXTID . '/' . $categorycontext->id . '/' . $cohortcontext->id, $cohortcontext->path);
+
+        // Test invalid context level.
+        $course = $this->getDataGenerator()->create_course();
+        $coursecontext = \context_course::instance($course->id);
+        $cohort = new \stdClass();
+        $cohort->contextid = $coursecontext->id;
+        $cohort->name = 'test cohort 3';
+        try {
+            cohort_add_cohort($cohort);
+            $this->fail('Exception expected when invalid cohort parent context supplied');
+        } catch (\moodle_exception $e) {
+            $this->assertInstanceOf(\invalid_parameter_exception::class, $e);
+            $this->assertSame('Invalid parameter value detected (Invalid parent context for cohort)', $e->getMessage());
+        }
+
+        // Test empty idnumber is NULL.
+        $cohort = new \stdClass();
+        $cohort->name = 'test cohort 4';
+        $cohort->idnumber = ' ';
+        $cohort->contextid = \context_system::instance()->id;
+        $id = cohort_add_cohort($cohort);
+        $newcohort = $DB->get_record('cohort', ['id' => $id]);
+        $this->assertSame(null, $newcohort->idnumber);
+
+        // Test duplicate idnumber error.
+        $cohort = new \stdClass();
+        $cohort->name = 'test cohort 4';
+        $cohort->idnumber = 'testid';
+        $cohort->contextid = \context_system::instance()->id;
+        try {
+            cohort_add_cohort($cohort);
+            $this->fail('idnumber duplicates must be prevented');
+        } catch (\moodle_exception $e) {
+            $this->assertInstanceOf(\invalid_parameter_exception::class, $e);
+            $this->assertSame('Invalid parameter value detected (Duplicate cohort idnumber detected)', $e->getMessage());
+        }
     }
 
     public function test_cohort_add_cohort_missing_name() {
@@ -87,6 +141,7 @@ class lib_test extends \advanced_testcase {
 
         // Perform the add operation.
         $id = cohort_add_cohort($cohort);
+        $cohortcontext = \context_cohort::instance($id);
 
         // Capture the event.
         $events = $sink->get_events();
@@ -98,7 +153,7 @@ class lib_test extends \advanced_testcase {
         $this->assertInstanceOf('\core\event\cohort_created', $event);
         $this->assertEquals('cohort', $event->objecttable);
         $this->assertEquals($id, $event->objectid);
-        $this->assertEquals($cohort->contextid, $event->contextid);
+        $this->assertEquals($cohortcontext->id, $event->contextid);
         $url = new \moodle_url('/cohort/index.php', array('contextid' => $event->contextid));
         $this->assertEquals($url, $event->get_url());
         $this->assertEquals($cohort, $event->get_record_snapshot('cohort', $id));
@@ -137,6 +192,68 @@ class lib_test extends \advanced_testcase {
         $this->assertSame($newcohort->theme, '');
         $this->assertGreaterThan($newcohort->timecreated, $newcohort->timemodified);
         $this->assertLessThanOrEqual(time(), $newcohort->timemodified);
+
+        // Test idnumber duplicate error.
+        $cohort = $this->getDataGenerator()->create_cohort(['idnumber' => 'tst']);
+        try {
+            $cohort->idnumber = 'testid';
+            cohort_update_cohort($cohort);
+            $this->fail('idnumber duplicates must be prevented');
+        } catch (\moodle_exception $e) {
+            $this->assertInstanceOf(\invalid_parameter_exception::class, $e);
+            $this->assertSame('Invalid parameter value detected (Duplicate cohort idnumber detected)', $e->getMessage());
+        }
+        $notudpatedcohort = $DB->get_record('cohort', ['id' => $cohort->id]);
+        $this->assertSame('tst', $notudpatedcohort->idnumber);
+    }
+
+    /**
+     * @covers ::cohort_update_cohort()
+     */
+    public function test_cohort_update_context_change() {
+        global $DB;
+        $this->resetAfterTest();
+
+        $category1 = $this->getDataGenerator()->create_category();
+        $categorycontext1 = \context_coursecat::instance($category1->id);
+        $category2 = $this->getDataGenerator()->create_category();
+        $categorycontext2 = \context_coursecat::instance($category2->id);
+        $syscontext = \context_system::instance();
+        $cohort = $this->getDataGenerator()->create_cohort();
+
+        $cohort->contextid = $categorycontext1->id;
+        cohort_update_cohort($cohort);
+        $udpatedcohort = $DB->get_record('cohort', ['id' => $cohort->id]);
+        $this->assertEquals($categorycontext1->id, $udpatedcohort->contextid);
+        $context = \context_cohort::instance($cohort->id);
+        $this->assertSame("/$syscontext->id/$categorycontext1->id/$context->id", $context->path);
+
+        $cohort->contextid = $categorycontext2->id;
+        cohort_update_cohort($cohort);
+        $udpatedcohort = $DB->get_record('cohort', ['id' => $cohort->id]);
+        $this->assertEquals($categorycontext2->id, $udpatedcohort->contextid);
+        $context = \context_cohort::instance($cohort->id);
+        $this->assertSame("/$syscontext->id/$categorycontext2->id/$context->id", $context->path);
+
+        $cohort->contextid = $syscontext->id;
+        cohort_update_cohort($cohort);
+        $udpatedcohort = $DB->get_record('cohort', ['id' => $cohort->id]);
+        $this->assertEquals($syscontext->id, $udpatedcohort->contextid);
+        $context = \context_cohort::instance($cohort->id);
+        $this->assertSame("/$syscontext->id/$context->id", $context->path);
+
+        // Test invalid context error.
+        $course = $this->getDataGenerator()->create_course();
+        $coursecontext = \context_course::instance($course->id);
+        $cohort = $this->getDataGenerator()->create_cohort();
+        $cohort->contextid = $coursecontext->id;
+        try {
+            cohort_update_cohort($cohort);
+            $this->fail('Error expected for invalid cohort parent');
+        } catch (\moodle_exception $e) {
+            $this->assertInstanceOf(\invalid_parameter_exception::class, $e);
+            $this->assertSame('Invalid parameter value detected (Invalid parent context for cohort)', $e->getMessage());
+        }
     }
 
     public function test_cohort_update_cohort_event() {
@@ -154,6 +271,7 @@ class lib_test extends \advanced_testcase {
         $cohort->theme = '';
         $id = cohort_add_cohort($cohort);
         $this->assertNotEmpty($id);
+        $cohortcontext = \context_cohort::instance($id);
 
         $cohort->name = 'test cohort 2';
 
@@ -175,7 +293,7 @@ class lib_test extends \advanced_testcase {
         $this->assertInstanceOf('\core\event\cohort_updated', $event);
         $this->assertEquals('cohort', $event->objecttable);
         $this->assertEquals($updatedcohort->id, $event->objectid);
-        $this->assertEquals($updatedcohort->contextid, $event->contextid);
+        $this->assertEquals($cohortcontext->id, $event->contextid);
         $url = new \moodle_url('/cohort/edit.php', array('id' => $event->objectid));
         $this->assertEquals($url, $event->get_url());
         $this->assertEquals($cohort, $event->get_record_snapshot('cohort', $id));
@@ -221,6 +339,8 @@ class lib_test extends \advanced_testcase {
         $this->assertEquals($cohort, $event->get_record_snapshot('cohort', $cohort->id));
         $this->assertEventLegacyData($cohort, $event);
         $this->assertEventContextNotUsed($event);
+
+        $this->assertFalse(\context_cohort::instance($cohort->id, IGNORE_MISSING));
     }
 
     public function test_cohort_delete_category() {
@@ -258,6 +378,7 @@ class lib_test extends \advanced_testcase {
 
         // Setup the data.
         $cohort = $this->getDataGenerator()->create_cohort();
+        $cohortcontext = \context_cohort::instance($cohort->id);
         $user = $this->getDataGenerator()->create_user();
 
         // Capture the events.
@@ -277,6 +398,7 @@ class lib_test extends \advanced_testcase {
         $this->assertEquals($cohort->id, $event->objectid);
         $this->assertEquals($user->id, $event->relateduserid);
         $this->assertEquals($USER->id, $event->userid);
+        $this->assertEquals($cohortcontext->id, $event->contextid);
         $url = new \moodle_url('/cohort/assign.php', array('id' => $event->objectid));
         $this->assertEquals($url, $event->get_url());
         $this->assertEventLegacyData((object) array('cohortid' => $cohort->id, 'userid' => $user->id), $event);
@@ -304,6 +426,7 @@ class lib_test extends \advanced_testcase {
 
         // Setup the data.
         $cohort = $this->getDataGenerator()->create_cohort();
+        $cohortcontext = \context_cohort::instance($cohort->id);
         $user = $this->getDataGenerator()->create_user();
         cohort_add_member($cohort->id, $user->id);
 
@@ -323,6 +446,7 @@ class lib_test extends \advanced_testcase {
         $this->assertEquals($cohort->id, $event->objectid);
         $this->assertEquals($user->id, $event->relateduserid);
         $this->assertEquals($USER->id, $event->userid);
+        $this->assertEquals($cohortcontext->id, $event->contextid);
         $url = new \moodle_url('/cohort/assign.php', array('id' => $event->objectid));
         $this->assertEquals($url, $event->get_url());
         $this->assertEventLegacyData((object) array('cohortid' => $cohort->id, 'userid' => $user->id), $event);
@@ -661,26 +785,20 @@ class lib_test extends \advanced_testcase {
         set_config('theme', 'boost');
 
         $systemctx = \context_system::instance();
-        $cohort1 = $this->getDataGenerator()->create_cohort(array('contextid' => $systemctx->id, 'name' => 'test cohort 1',
-            'idnumber' => 'testid1', 'description' => 'test cohort desc', 'descriptionformat' => FORMAT_HTML, 'theme' => 'classic'));
+        $cohort1 = (object)array('contextid' => $systemctx->id, 'name' => 'test cohort 1',
+            'idnumber' => 'testid1', 'description' => 'test cohort desc', 'descriptionformat' => FORMAT_HTML, 'theme' => 'classic');
 
         $id = cohort_add_cohort($cohort1);
         $this->assertNotEmpty($id);
         $newcohort = $DB->get_record('cohort', array('id' => $id));
         $this->assertEquals($cohort1->contextid, $newcohort->contextid);
         $this->assertSame($cohort1->name, $newcohort->name);
-        $this->assertSame($cohort1->description, $newcohort->description);
-        $this->assertEquals($cohort1->descriptionformat, $newcohort->descriptionformat);
-        $this->assertNotEmpty($newcohort->theme);
         $this->assertSame($cohort1->theme, $newcohort->theme);
-        $this->assertNotEmpty($newcohort->timecreated);
-        $this->assertSame($newcohort->component, '');
-        $this->assertSame($newcohort->timecreated, $newcohort->timemodified);
 
         // Theme is not added when allowcohortthemes is disabled.
         set_config('allowcohortthemes', 0);
 
-        $cohort2 = $this->getDataGenerator()->create_cohort(array('contextid' => $systemctx->id, 'name' => 'test cohort 2',
+        $cohort2 = (object)(array('contextid' => $systemctx->id, 'name' => 'test cohort 2',
             'idnumber' => 'testid2', 'description' => 'test cohort desc', 'descriptionformat' => FORMAT_HTML, 'theme' => 'classic'));
 
         $id = cohort_add_cohort($cohort2);
@@ -703,7 +821,7 @@ class lib_test extends \advanced_testcase {
         set_config('theme', 'boost');
 
         $systemctx = \context_system::instance();
-        $cohort1 = $this->getDataGenerator()->create_cohort(array('contextid' => $systemctx->id, 'name' => 'test cohort 1',
+        $cohort1 = (object)(array('contextid' => $systemctx->id, 'name' => 'test cohort 1',
             'idnumber' => 'testid1', 'description' => 'test cohort desc', 'descriptionformat' => FORMAT_HTML, 'theme' => 'classic'));
         $id = cohort_add_cohort($cohort1);
         $this->assertNotEmpty($id);
@@ -716,7 +834,6 @@ class lib_test extends \advanced_testcase {
         $updatedcohort = $DB->get_record('cohort', array('id' => $id));
         $this->assertEquals($cohort1->contextid, $updatedcohort->contextid);
         $this->assertSame($cohort1->name, $updatedcohort->name);
-        $this->assertSame($cohort1->description, $updatedcohort->description);
         $this->assertNotEmpty($updatedcohort->theme);
         $this->assertSame($cohort1->theme, $updatedcohort->theme);
 
@@ -729,5 +846,66 @@ class lib_test extends \advanced_testcase {
         $this->assertEquals($cohort2->contextid, $updatedcohort->contextid);
         $this->assertNotEmpty($updatedcohort->theme);
         $this->assertSame($cohort1->theme, $updatedcohort->theme);
+    }
+
+    /**
+     * @covers ::cohort_can_view_cohort_details()
+     */
+    public function test_cohort_can_view_cohort_details() {
+        $this->resetAfterTest();
+
+        $syscontext = \context_system::instance();
+        $cohortmanagerrole = create_role('Cohort manager', 'cohortmanager', '');
+        assign_capability('moodle/cohort:manage', CAP_ALLOW, $cohortmanagerrole, $syscontext->id);
+        $cohortviewerrole = create_role('Cohort viewer', 'cohortviewer', '');
+        assign_capability('moodle/cohort:view', CAP_ALLOW, $cohortviewerrole, $syscontext->id);
+        $category = $this->getDataGenerator()->create_category();
+        $categorycontext = \context_coursecat::instance($category->id);
+        $cohort1 = $this->getDataGenerator()->create_cohort(['contextid' => $syscontext->id]);
+        $cohortcontext1 = \context_cohort::instance($cohort1->id);
+        $cohort2 = $this->getDataGenerator()->create_cohort(['contextid' => $categorycontext->id]);
+        $cohortcontext2 = \context_cohort::instance($cohort2->id);
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        // Cohort view capability is for system and category context only.
+
+        $this->assertFalse(cohort_can_view_cohort_details($cohort1));
+        $this->assertFalse(cohort_can_view_cohort_details($cohort2));
+
+        role_assign($cohortviewerrole, $user->id, $categorycontext->id);
+        $this->assertFalse(cohort_can_view_cohort_details($cohort1));
+        $this->assertTrue(cohort_can_view_cohort_details($cohort2));
+        role_unassign($cohortviewerrole, $user->id, $categorycontext->id);
+
+        role_assign($cohortviewerrole, $user->id, $syscontext->id);
+        $this->assertTrue(cohort_can_view_cohort_details($cohort1));
+        $this->assertTrue(cohort_can_view_cohort_details($cohort2));
+        role_unassign($cohortviewerrole, $user->id, $syscontext->id);
+
+        role_assign($cohortviewerrole, $user->id, $cohortcontext1->id);
+        $this->assertFalse(cohort_can_view_cohort_details($cohort1));
+        $this->assertFalse(cohort_can_view_cohort_details($cohort2));
+        role_unassign($cohortviewerrole, $user->id, $cohortcontext1->id);
+
+        // Cohort manage capability can be used in cohort context.
+
+        $this->assertFalse(cohort_can_view_cohort_details($cohort1));
+        $this->assertFalse(cohort_can_view_cohort_details($cohort2));
+
+        role_assign($cohortmanagerrole, $user->id, $categorycontext->id);
+        $this->assertFalse(cohort_can_view_cohort_details($cohort1));
+        $this->assertTrue(cohort_can_view_cohort_details($cohort2));
+        role_unassign($cohortmanagerrole, $user->id, $categorycontext->id);
+
+        role_assign($cohortmanagerrole, $user->id, $syscontext->id);
+        $this->assertTrue(cohort_can_view_cohort_details($cohort1));
+        $this->assertTrue(cohort_can_view_cohort_details($cohort2));
+        role_unassign($cohortmanagerrole, $user->id, $syscontext->id);
+
+        role_assign($cohortmanagerrole, $user->id, $cohortcontext1->id);
+        $this->assertTrue(cohort_can_view_cohort_details($cohort1));
+        $this->assertFalse(cohort_can_view_cohort_details($cohort2));
+        role_unassign($cohortmanagerrole, $user->id, $cohortcontext1->id);
     }
 }

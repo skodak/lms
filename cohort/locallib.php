@@ -165,3 +165,48 @@ class cohort_existing_selector extends user_selector_base {
     }
 }
 
+/**
+ * Creates options for urlselect output element that links to
+ * permissions pages related to cohort.
+ *
+ * @param stdClass $cohort
+ * @return array
+ */
+function cohort_get_edit_urlselect(stdClass $cohort): array {
+    if (!$cohort->id) {
+        return [];
+    }
+
+    $result = [];
+    $cohortcontext = context_cohort::instance($cohort->id);
+
+    // This is supposed to be called from edit page only, so add it always.
+    $url = new moodle_url('/cohort/edit.php', ['contextid' => $cohort->contextid, 'id' => $cohort->id]);
+    $result[$url->out(false)] = get_string('editcohort', 'cohort');
+
+    // Assign local roles.
+    $assignableroles = get_assignable_roles($cohortcontext);
+    if (!empty($assignableroles)) {
+        $url = new moodle_url('/admin/roles/assign.php', array('contextid' => $cohortcontext->id));
+        $result[$url->out(false)] = get_string('assignroles', 'role');
+    }
+
+    // Override roles.
+    if (has_capability('moodle/role:review', $cohortcontext) or count(get_overridable_roles($cohortcontext)) > 0) {
+        $url = new moodle_url('/admin/roles/permissions.php', array('contextid' => $cohortcontext->id));
+        $result[$url->out(false)] = get_string('permissions', 'role');
+    }
+
+    // Check role permissions.
+    if (has_any_capability(['moodle/role:assign', 'moodle/role:safeoverride',
+        'moodle/role:override', 'moodle/role:assign'], $cohortcontext)) {
+        $url = new moodle_url('/admin/roles/check.php', array('contextid' => $cohortcontext->id));
+        $result[$url->out(false)] = get_string('checkpermissions', 'role');
+    }
+
+    if (count($result) > 1) {
+        return $result;
+    } else {
+        return [];
+    }
+}

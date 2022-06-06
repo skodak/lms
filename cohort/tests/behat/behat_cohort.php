@@ -57,6 +57,7 @@ class behat_cohort extends behat_base {
             $this->execute("behat_navigation::i_navigate_to_in_site_administration",
                 $parentnodes . ' > ' . get_string('cohorts', 'cohort')
             );
+            $this->execute("behat_general::click_link", get_string('allcohorts', 'cohort'));
         }
 
         $this->execute('behat_general::i_click_on_in_the',

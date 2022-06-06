@@ -147,7 +147,7 @@ class testing_generator_test extends \advanced_testcase {
         $this->assertEquals($count+1, $DB->count_records('cohort'));
         $this->assertEquals(\context_system::instance()->id, $cohort->contextid);
         $this->assertMatchesRegularExpression('/^Cohort \d/', $cohort->name);
-        $this->assertSame('', $cohort->idnumber);
+        $this->assertSame(null, $cohort->idnumber);
         $this->assertMatchesRegularExpression("/^Description for '{$cohort->name}' \\n/", $cohort->description);
         $this->assertSame(FORMAT_MOODLE, $cohort->descriptionformat);
         $this->assertSame('', $cohort->component);

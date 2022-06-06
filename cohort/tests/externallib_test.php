@@ -165,8 +165,19 @@ class externallib_test extends externallib_advanced_testcase {
         $cohort1 = self::getDataGenerator()->create_cohort();
         $cohort2 = self::getDataGenerator()->create_cohort();
         $this->unassignUserCapability('moodle/cohort:manage', $contextid, $roleid);
-        $this->expectException(\required_capability_exception::class);
-        core_cohort_external::delete_cohorts(array($cohort1->id, $cohort2->id));
+        try {
+            core_cohort_external::delete_cohorts(array($cohort1->id, $cohort2->id));
+            $this->fail('required_capability_exception expected');
+        } catch (\moodle_exception $e) {
+            $this->assertInstanceOf(\required_capability_exception::class, $e);
+            $this->assertSame('Sorry, but you do not currently have permissions to do that (Create, delete and move cohorts).', $e->getMessage());
+        }
+
+        // Permission at the cohort context.
+        $cohortcontext1 = \context_cohort::instance($cohort1->id);
+        $this->assignUserCapability('moodle/cohort:manage', $cohortcontext1->id, $roleid);
+        core_cohort_external::delete_cohorts([$cohort1->id]);
+        $this->assertFalse($DB->record_exists('cohort', ['id' => $cohort1->id]));
     }
 
     /**
@@ -230,6 +241,22 @@ class externallib_test extends externallib_advanced_testcase {
                 $this->assertNull($enrolledcohort['theme']);
             }
         }
+
+        // Check manage works at cohort context too.
+        $this->unassignUserCapability('moodle/cohort:manage', $context->id, $roleid);
+        $cohortcontext1 = \context_cohort::instance($cohort1->id);
+        $this->assignUserCapability('moodle/cohort:manage', $cohortcontext1->id, $roleid);
+        $returnedcohorts = core_cohort_external::get_cohorts(array($cohort1->id));
+        $this->assertCount(1, $returnedcohorts);
+
+        // No permission.
+        try {
+            core_cohort_external::get_cohorts(array($cohort2->id));
+            $this->fail('required_capability_exception expected');
+        } catch (\moodle_exception $e) {
+            $this->assertInstanceOf(\required_capability_exception::class, $e);
+            $this->assertSame('Sorry, but you do not currently have permissions to do that (View site-wide cohorts).', $e->getMessage());
+        }
     }
 
     /**
@@ -291,8 +318,23 @@ class externallib_test extends externallib_advanced_testcase {
 
         // Call without required capability.
         $this->unassignUserCapability('moodle/cohort:manage', $context->id, $roleid);
-        $this->expectException(\required_capability_exception::class);
+        try {
+            core_cohort_external::update_cohorts(array($cohort1));
+            $this->fail('required_capability_exception expected');
+        } catch (\moodle_exception $e) {
+            $this->assertInstanceOf(\required_capability_exception::class, $e);
+            $this->assertSame('Sorry, but you do not currently have permissions to do that (Create, delete and move cohorts).', $e->getMessage());
+        }
+
+        // Permission at cohort level.
+        $dbcohort = $DB->get_record('cohort', array('id' => $cohort1['id']));
+        $this->assertEquals(1, $dbcohort->visible);
+        $cohort1['visible'] = 0;
+        $cohortcontext1 = \context_cohort::instance($cohort1['id']);
+        $this->assignUserCapability('moodle/cohort:manage', $cohortcontext1->id, $roleid);
         core_cohort_external::update_cohorts(array($cohort1));
+        $dbcohort = $DB->get_record('cohort', array('id' => $cohort1['id']));
+        $this->assertEquals(0, $dbcohort->visible);
     }
 
     /**
@@ -454,8 +496,38 @@ class externallib_test extends externallib_advanced_testcase {
             'usertype' => array('type' => 'id', 'value' => '2')
             );
         $this->unassignUserCapability('moodle/cohort:assign', $contextid, $roleid);
-        $this->expectException(\required_capability_exception::class);
+        try {
+            core_cohort_external::add_cohort_members(array($cohort2));
+            $this->fail('required_capability_exception expected');
+        } catch (\moodle_exception $e) {
+            $this->assertInstanceOf(\required_capability_exception::class, $e);
+            $this->assertSame('Sorry, but you do not currently have permissions to do that (Add and remove cohort members).', $e->getMessage());
+        }
+
+        // Manage permission is irrelevant here.
+        $cohort2 = array(
+            'cohorttype' => array('type' => 'id', 'value' => $cohort0->id),
+            'usertype' => array('type' => 'id', 'value' => '2')
+        );
+        $this->assignUserCapability('moodle/cohort:manage', $contextid, $roleid);
+        try {
+            core_cohort_external::add_cohort_members(array($cohort2));
+            $this->fail('required_capability_exception expected');
+        } catch (\moodle_exception $e) {
+            $this->assertInstanceOf(\required_capability_exception::class, $e);
+            $this->assertSame('Sorry, but you do not currently have permissions to do that (Add and remove cohort members).', $e->getMessage());
+        }
+        $this->unassignUserCapability('moodle/cohort:manage', $contextid, $roleid);
+
+        // Permission at cohort context.
+        $cohort2 = array(
+            'cohorttype' => array('type' => 'id', 'value' => $cohort0->id),
+            'usertype' => array('type' => 'id', 'value' => '2')
+        );
+        $cohortcontext = \context_cohort::instance($cohort0->id);
+        $this->assignUserCapability('moodle/cohort:assign', $cohortcontext->id, $roleid);
         $addcohortmembers = core_cohort_external::add_cohort_members(array($cohort2));
+        $this->assertCount(1, $addcohortmembers);
     }
 
     /**
@@ -511,8 +583,29 @@ class externallib_test extends externallib_advanced_testcase {
 
         // Call without required capability.
         $this->unassignUserCapability('moodle/cohort:assign', $context->id, $roleid);
-        $this->expectException(\required_capability_exception::class);
-        core_cohort_external::delete_cohort_members(array($cohortdel1, $cohortdel2));
+        try {
+            core_cohort_external::delete_cohort_members(array($cohortdel1, $cohortdel2));
+            $this->fail('required_capability_exception expected');
+        } catch (\moodle_exception $e) {
+            $this->assertInstanceOf(\required_capability_exception::class, $e);
+            $this->assertSame('Sorry, but you do not currently have permissions to do that (Add and remove cohort members).', $e->getMessage());
+        }
+
+        // Manage permission is irrelevant here.
+        $this->assignUserCapability('moodle/cohort:manage', $context->id, $roleid);
+        try {
+            core_cohort_external::delete_cohort_members(array($cohortdel1, $cohortdel2));
+            $this->fail('required_capability_exception expected');
+        } catch (\moodle_exception $e) {
+            $this->assertInstanceOf(\required_capability_exception::class, $e);
+            $this->assertSame('Sorry, but you do not currently have permissions to do that (Add and remove cohort members).', $e->getMessage());
+        }
+        $this->unassignUserCapability('moodle/cohort:manage', $context->id, $roleid);
+
+        // Permission at the cohort context.
+        $cohortcontext = \context_cohort::instance($cohort1->id);
+        $this->assignUserCapability('moodle/cohort:assign', $cohortcontext->id, $roleid);
+        core_cohort_external::delete_cohort_members(array($cohortdel1));
     }
 
     /**

@@ -30,6 +30,7 @@ $levels = [
     'system',
     'user',
     'coursecat',
+    'cohort',
     'course',
     'module',
     'block',

@@ -129,6 +129,7 @@ class block_test extends \advanced_testcase {
         $this->assertContains(system::LEVEL, $result);
         $this->assertContains(user::LEVEL, $result);
         $this->assertContains(coursecat::LEVEL, $result);
+        $this->assertContains(cohort::LEVEL, $result);
         $this->assertContains(course::LEVEL, $result);
         $this->assertContains(module::LEVEL, $result);
         $this->assertNotContains(block::LEVEL, $result);

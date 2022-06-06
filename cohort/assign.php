@@ -32,8 +32,9 @@ require_login();
 
 $cohort = $DB->get_record('cohort', array('id'=>$id), '*', MUST_EXIST);
 $context = context::instance_by_id($cohort->contextid, MUST_EXIST);
+$cohortcontext = context_cohort::instance($cohort->id);
 
-require_capability('moodle/cohort:assign', $context);
+require_capability('moodle/cohort:assign', $cohortcontext);
 
 $PAGE->set_context($context);
 $PAGE->set_url('/cohort/assign.php', array('id'=>$id));
@@ -42,7 +43,14 @@ $PAGE->set_pagelayout('admin');
 if ($returnurl) {
     $returnurl = new moodle_url($returnurl);
 } else {
-    $returnurl = new moodle_url('/cohort/index.php', array('contextid' => $cohort->contextid));
+    // It gets a bit tricky if user has only the assign capability.
+    if (has_capability('moodle/cohort:view', $context) || has_capability('moodle/cohort:manage', $context)) {
+        $returnurl = new moodle_url('/cohort/index.php', ['contextid' => $cohort->contextid]);
+    } else if (has_capability('moodle/cohort:manage', $cohortcontext)) {
+        $returnurl = new moodle_url('/cohort/edit.php', ['id' => $cohort->id]);
+    } else {
+        $returnurl = new moodle_url('/');
+    }
 }
 
 if (!empty($cohort->component)) {

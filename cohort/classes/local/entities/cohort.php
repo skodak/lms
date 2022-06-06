@@ -140,10 +140,11 @@ class cohort extends base {
                     return '';
                 }
 
-                $description = file_rewrite_pluginfile_urls($description, 'pluginfile.php', $cohort->contextid, 'cohort',
-                    'description', $cohort->id);
+                $context = \context_cohort::instance($cohort->id);
+                $description = file_rewrite_pluginfile_urls($description, 'pluginfile.php', $context->id, 'cohort',
+                    'description', null);
 
-                return format_text($description, $cohort->descriptionformat, ['context' => $cohort->contextid]);
+                return format_text($description, $cohort->descriptionformat, ['context' => $context->id]);
             })
             ->set_is_sortable(false);
 

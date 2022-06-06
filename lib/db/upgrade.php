@@ -4595,5 +4595,48 @@ privatefiles,moodle|/user/files.php';
         upgrade_main_savepoint(true, 2022061500.00);
     }
 
+    if ($oldversion < 2022062400.01) {
+        upgrade_migrate_cohort_context();
+        // Main savepoint reached.
+        upgrade_main_savepoint(true, 2022062400.01);
+    }
+
+    if ($oldversion < 2022062400.02) {
+        // Standardise empty cohort idnumbers to NULLs,
+        // remove idnumber duplicates and add proper unique index.
+
+        $DB->set_field('cohort', 'idnumber', null, ['idnumber' => '']);
+
+        // Use idnumber comparison instead of GROUP BY to deal with MySQL collation dependant uniqueness.
+        $sql = "SELECT c.id, c.idnumber
+                  FROM {cohort} c
+                 WHERE c.idnumber IS NOT NULL
+                       AND EXISTS (SELECT 'x'
+                                     FROM {cohort} ch
+                                    WHERE ch.idnumber = c.idnumber AND ch.id > c.id)
+                       AND NOT EXISTS (SELECT 'x'
+                                         FROM {cohort} cl
+                                        WHERE cl.idnumber = c.idnumber AND cl.id < c.id)
+              ORDER BY c.id ASC";
+        $cohorts = $DB->get_records_sql($sql);
+        foreach ($cohorts as $cohort) {
+            $select = 'idnumber = :idnumber AND id > :id';
+            $params = ['idnumber' => $cohort->idnumber, 'id' => $cohort->id];
+            $DB->set_field_select('cohort', 'idnumber', null, $select, $params);
+        }
+
+        // Define index idnumber (unique) to be added to cohort.
+        $table = new xmldb_table('cohort');
+        $index = new xmldb_index('idnumber', XMLDB_INDEX_UNIQUE, ['idnumber']);
+
+        // Conditionally launch add index idnumber.
+        if (!$dbman->index_exists($table, $index)) {
+            $dbman->add_index($table, $index);
+        }
+
+        // Main savepoint reached.
+        upgrade_main_savepoint(true, 2022062400.02);
+    }
+
     return true;
 }

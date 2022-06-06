@@ -70,12 +70,11 @@ class provider_test extends \core_privacy\tests\provider_testcase {
         $this->setup_test_scenario_data($user->id, $systemctx, 1);
         $this->setup_test_scenario_data($user->id, $coursecategoryctx, 1, 'Sausage roll 2',
             'sausageroll2');
-        $this->setup_test_scenario_data($user->id, $coursectx, 1, 'Sausage roll 3',
-            'sausageroll3');
+        // Do not try to create course cohorts for this test!
 
         // Test the User's assigned cohortroles matches 3.
         $cohortroles = $DB->get_records('tool_cohortroles', ['userid' => $user->id]);
-        $this->assertCount(3, $cohortroles);
+        $this->assertCount(2, $cohortroles);
 
         // Test the User's retrieved contextlist returns only the system and course category context.
         $contextlist = provider::get_contexts_for_userid($user->id);
@@ -111,8 +110,7 @@ class provider_test extends \core_privacy\tests\provider_testcase {
         $this->setup_test_scenario_data($user->id, $systemctx, 1);
         $this->setup_test_scenario_data($user->id, $coursecategoryctx, 1, 'Sausage roll 2',
             'sausageroll2');
-        $this->setup_test_scenario_data($user->id, $coursectx, 1, 'Sausage roll 3',
-            'sausageroll3');
+        // Do not try to create course cohorts for this test!
 
         // Test the User's retrieved contextlist contains two contexts.
         $contextlist = provider::get_contexts_for_userid($user->id);

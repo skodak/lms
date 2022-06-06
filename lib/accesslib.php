@@ -124,6 +124,8 @@ define('CONTEXT_SYSTEM', 10);
 define('CONTEXT_USER', 30);
 /** Course category context level - one instance for each category */
 define('CONTEXT_COURSECAT', 40);
+/** Cohort context level - one instance for each cohort */
+define('CONTEXT_COHORT', 45);
 /** Course context level - one instances for each course */
 define('CONTEXT_COURSE', 50);
 /** Course module context level - one instance for each course module */
@@ -4896,6 +4898,7 @@ function role_change_permission($roleid, $context, $capname, $permission) {
 class_alias(core\context_helper::class, 'context_helper', true);
 class_alias(core\context::class, 'context', true);
 class_alias(core\context\block::class, 'context_block');
+class_alias(core\context\cohort::class, 'context_cohort', true);
 class_alias(core\context\course::class, 'context_course', true);
 class_alias(core\context\coursecat::class, 'context_coursecat');
 class_alias(core\context\module::class, 'context_module', true);

@@ -1,6 +1,19 @@
 This files describes API changes in /cohort/ information provided here is intended
 especially for developers.
 
+=== 4.1 ===
+
+* Cohort idnumber is now enforced at the database level, duplicate idnumbers are
+  removed during upgrade.
+* Cohort files are now stored in cohort contexts without itemid, old plugin file
+  URLs are still supported in order to allow acces via cohort search API.
+* External API incorrectly allowed cohort member adding and removal with manage capability,
+  moodle/cohort:assign capability in cohort context is now required to add and remove cohort
+  members both in web UI and external API.
+* There is a new CONTEXT_COHORT context level which allows delegation of moodle/cohort:manage
+  and moodle/cohort:assign permissions for individual cohorts. The cohort visibility logic
+  was not changed, moodle/cohort:view is still applicable at system, category and course levels.
+
 === 3.1 ===
 * The Webservice core_cohort_get_cohorts now has the added functionality of getting all cohorts
   by not passing any parameters

@@ -2370,7 +2370,7 @@
     <TABLE NAME="cohort" COMMENT="Each record represents one cohort (aka site-wide group).">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
-        <FIELD NAME="contextid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Context is usually ignored in sync operations so that the cohorts may be moved freely around in the context tree without any side affects."/>
+        <FIELD NAME="contextid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Parent context - system or course category, it is usually ignored in sync operations so that the cohorts may be moved freely around in the context tree without any side affects."/>
         <FIELD NAME="name" TYPE="char" LENGTH="254" NOTNULL="true" SEQUENCE="false" COMMENT="Short human readable name for the cohort, does not have to be unique"/>
         <FIELD NAME="idnumber" TYPE="char" LENGTH="100" NOTNULL="false" SEQUENCE="false" COMMENT="Unique identifier of a cohort, useful especially for mapping to external entities"/>
         <FIELD NAME="description" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Standard description text box"/>
@@ -2385,6 +2385,9 @@
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
         <KEY NAME="context" TYPE="foreign" FIELDS="contextid" REFTABLE="context" REFFIELDS="id"/>
       </KEYS>
+      <INDEXES>
+        <INDEX NAME="idnumber" UNIQUE="true" FIELDS="idnumber" COMMENT="cohort idnumbers must be unique"/>
+      </INDEXES>
     </TABLE>
     <TABLE NAME="cohort_members" COMMENT="Link a user to a cohort.">
       <FIELDS>

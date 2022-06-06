@@ -4911,25 +4911,31 @@ function file_pluginfile($relativepath, $forcedownload, $preview = null, $offlin
 
     } else if ($component === 'cohort') {
 
-        $cohortid = (int)array_shift($args);
-        $cohort = $DB->get_record('cohort', array('id' => $cohortid), '*', MUST_EXIST);
-        $cohortcontext = context::instance_by_id($cohort->contextid);
+        if ($filearea === 'description') {
+            require_once($CFG->dirroot . '/cohort/lib.php');
 
-        // The context in the file URL must be either cohort context or context of the course underneath the cohort's context.
-        if ($context->id != $cohort->contextid &&
-            ($context->contextlevel != CONTEXT_COURSE || !in_array($cohort->contextid, $context->get_parent_context_ids()))) {
-            send_file_not_found();
-        }
+            // Cohort description should be displayed only on the management page and
+            // via external API when cohort_can_view_cohort_details() is true,
+            // but external API grants access to all details via cohort_can_view_cohort().
 
-        // User is able to access cohort if they have view cap on cohort level or
-        // the cohort is visible and they have view cap on course level.
-        $canview = has_capability('moodle/cohort:view', $cohortcontext) ||
-                ($cohort->visible && has_capability('moodle/cohort:view', $context));
+            if ($context->contextlevel == CONTEXT_COHORT) {
+                $cohort = $DB->get_record('cohort', ['id' => $context->instanceid], '*', MUST_EXIST);
+                if (!cohort_can_view_cohort_details($cohort)) {
+                    send_file_not_found();
+                }
+                $cohortcontext = $context;
+            } else {
+                $cohortid = (int)array_shift($args);
+                $cohort = $DB->get_record('cohort', ['id' => $cohortid]);
+                if (!$cohort || !cohort_can_view_cohort($cohort, $context)) {
+                    send_file_not_found();
+                }
+                $cohortcontext = context_cohort::instance($cohort->id);
+            }
 
-        if ($filearea === 'description' && $canview) {
             $filename = array_pop($args);
             $filepath = $args ? '/'.implode('/', $args).'/' : '/';
-            if (($file = $fs->get_file($cohortcontext->id, 'cohort', 'description', $cohort->id, $filepath, $filename))
+            if (($file = $fs->get_file($cohortcontext->id, 'cohort', 'description', 0, $filepath, $filename))
                     && !$file->is_directory()) {
                 \core\session\manager::write_close(); // Unlock session during file serving.
                 send_stored_file($file, 60 * 60, 0, $forcedownload, $sendfileoptions);

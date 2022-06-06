@@ -749,12 +749,13 @@ $capabilities = array(
         'clonepermissionsfrom' => 'moodle/category:visibility'
     ),
 
-    // create, delete, move cohorts in system and course categories,
-    // (cohorts with component !== null can be only moved)
+    // Create, delete, move cohorts in system and course categories,
+    // (cohorts with component !== null can be only moved).
+    // At category or system level it also grants read access to cohort management UI.
     'moodle/cohort:manage' => array(
 
         'captype' => 'write',
-        'contextlevel' => CONTEXT_COURSECAT,
+        'contextlevel' => CONTEXT_COHORT,
         'archetypes' => array(
             'manager' => CAP_ALLOW
         )
@@ -764,15 +765,19 @@ $capabilities = array(
     'moodle/cohort:assign' => array(
 
         'captype' => 'write',
-        'contextlevel' => CONTEXT_COURSECAT,
+        'contextlevel' => CONTEXT_COHORT,
         'archetypes' => array(
             'manager' => CAP_ALLOW
         )
     ),
 
-    // View visible and hidden cohorts defined in the current context.
+    // This capability is used for different purposes:
+    // 1. in cohort parent contexts (category and system) to view cohort details in management UI
+    // 2. in course context to allow searching for cohorts and use their members
+    // 3. in case 2. it is used for filtering of hidden cohorts at category or system context
+    //
+    // If Moodle implements capability queries in SQL-only then 3 separate capabilities could be used.
     'moodle/cohort:view' => array(
-
         'captype' => 'read',
         'contextlevel' => CONTEXT_COURSE,
         'archetypes' => array(

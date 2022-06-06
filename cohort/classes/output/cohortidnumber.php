@@ -37,10 +37,10 @@ class cohortidnumber extends \core\output\inplace_editable {
     /**
      * Constructor.
      *
-     * @param stdClass $cohort
+     * @param \stdClass $cohort
      */
     public function __construct($cohort) {
-        $cohortcontext = \context::instance_by_id($cohort->contextid);
+        $cohortcontext = \context_cohort::instance($cohort->id);
         $editable = has_capability('moodle/cohort:manage', $cohortcontext);
         $displayvalue = s($cohort->idnumber); // All idnumbers are plain text.
         parent::__construct('core_cohort', 'cohortidnumber', $cohort->id, $editable,
@@ -60,7 +60,7 @@ class cohortidnumber extends \core\output\inplace_editable {
     public static function update($cohortid, $newvalue) {
         global $DB;
         $cohort = $DB->get_record('cohort', array('id' => $cohortid), '*', MUST_EXIST);
-        $cohortcontext = \context::instance_by_id($cohort->contextid);
+        $cohortcontext = \context_cohort::instance($cohort->id);
         \external_api::validate_context($cohortcontext);
         require_capability('moodle/cohort:manage', $cohortcontext);
         $record = (object)array('id' => $cohort->id, 'idnumber' => $newvalue, 'contextid' => $cohort->contextid);

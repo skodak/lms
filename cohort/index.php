@@ -51,7 +51,9 @@ if ($context->contextlevel == CONTEXT_COURSECAT) {
 $manager = has_capability('moodle/cohort:manage', $context);
 $canassign = has_capability('moodle/cohort:assign', $context);
 if (!$manager) {
-    require_capability('moodle/cohort:view', $context);
+    if (!has_capability('moodle/cohort:view', $context)) {
+        redirect(new moodle_url('/'));
+    }
 }
 
 $strcohorts = get_string('cohorts', 'cohort');
@@ -138,15 +140,16 @@ $data = array();
 $editcolumnisempty = true;
 foreach($cohorts['cohorts'] as $cohort) {
     $line = array();
-    $cohortcontext = context::instance_by_id($cohort->contextid);
+    $parentcontext = context::instance_by_id($cohort->contextid);
+    $cohortcontext = context_cohort::instance($cohort->id);
     $cohort->description = file_rewrite_pluginfile_urls($cohort->description, 'pluginfile.php', $cohortcontext->id,
-            'cohort', 'description', $cohort->id);
+            'cohort', 'description', null);
     if ($showall) {
-        if ($cohortcontext->contextlevel == CONTEXT_COURSECAT) {
+        if ($parentcontext->contextlevel == CONTEXT_COURSECAT) {
             $line[] = html_writer::link(new moodle_url('/cohort/index.php' ,
-                    array('contextid' => $cohort->contextid)), $cohortcontext->get_context_name(false));
+                    array('contextid' => $cohort->contextid)), $parentcontext->get_context_name(false));
         } else {
-            $line[] = $cohortcontext->get_context_name(false);
+            $line[] = $parentcontext->get_context_name(false);
         }
     }
     $tmpl = new \core_cohort\output\cohortname($cohort);
@@ -183,9 +186,16 @@ foreach($cohorts['cohorts'] as $cohort) {
             $buttons[] = html_writer::link(new moodle_url('/cohort/edit.php', $urlparams + array('delete' => 1)),
                 $OUTPUT->pix_icon('t/delete', get_string('delete')),
                 array('title' => get_string('delete')));
+            if (defined('BEHAT_SITE_RUNNING')) {
+                // Inline editing icons start with "Edit", this makes it hard to click on edit icon in behat,
+                // so let's use this class hack instead.
+                $updateclass = 'update_cohort_link';
+            } else {
+                $updateclass = '';
+            }
             $buttons[] = html_writer::link(new moodle_url('/cohort/edit.php', $urlparams),
                 $OUTPUT->pix_icon('t/edit', get_string('edit')),
-                array('title' => get_string('edit')));
+                array('title' => get_string('edit'), 'class' => $updateclass));
             $editcolumnisempty = false;
         }
         if ($cohortcanassign) {

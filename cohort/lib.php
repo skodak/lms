@@ -37,14 +37,19 @@ define('COHORT_WITH_NOTENROLLED_MEMBERS_ONLY', 23);
  * @param  stdClass $cohort
  * @return int new cohort id
  */
-function cohort_add_cohort($cohort) {
+function cohort_add_cohort($cohort): int {
     global $DB, $CFG;
 
-    if (!isset($cohort->name)) {
+    if (!isset($cohort->name) || trim($cohort->name) === '') {
         throw new coding_exception('Missing cohort name in cohort_add_cohort().');
     }
-    if (!isset($cohort->idnumber)) {
-        $cohort->idnumber = NULL;
+    if (!isset($cohort->idnumber) || trim($cohort->idnumber) === '') {
+        // We have to enforce NULLs here because there is a new unique index.
+        $cohort->idnumber = null;
+    } else {
+        if ($DB->record_exists('cohort', ['idnumber' => $cohort->idnumber])) {
+            throw new invalid_parameter_exception('Duplicate cohort idnumber detected');
+        }
     }
     if (!isset($cohort->description)) {
         $cohort->description = '';
@@ -71,10 +76,17 @@ function cohort_add_cohort($cohort) {
         $cohort->timemodified = $cohort->timecreated;
     }
 
-    $cohort->id = $DB->insert_record('cohort', $cohort);
+    $parentcontext = context::instance_by_id($cohort->contextid);
+    if (!in_array($parentcontext->contextlevel, context_cohort::get_possible_parent_levels())) {
+        throw new invalid_parameter_exception('Invalid parent context for cohort');
+    }
 
+    $cohort->id = $DB->insert_record('cohort', $cohort);
+    $context = context_cohort::instance($cohort->id);
+
+    $cohort = $DB->get_record('cohort', ['id' => $cohort->id], '*', MUST_EXIST);
     $event = \core\event\cohort_created::create(array(
-        'context' => context::instance_by_id($cohort->contextid),
+        'context' => $context,
         'objectid' => $cohort->id,
     ));
     $event->add_record_snapshot('cohort', $cohort);
@@ -88,8 +100,33 @@ function cohort_add_cohort($cohort) {
  * @param  stdClass $cohort
  * @return void
  */
-function cohort_update_cohort($cohort) {
+function cohort_update_cohort($cohort): void {
     global $DB, $CFG;
+
+    $oldcohort = $DB->get_record('cohort', ['id' => $cohort->id], '*', MUST_EXIST);
+    $context = context_cohort::instance($cohort->id);
+
+    $trans = $DB->start_delegated_transaction();
+
+    $newparent = null;
+    if (property_exists($cohort, 'contextid') && $oldcohort->contextid != $cohort->contextid) {
+        $newparent = context::instance_by_id($cohort->contextid);
+        if (!in_array($newparent->contextlevel, context_cohort::get_possible_parent_levels())) {
+            throw new invalid_parameter_exception('Invalid parent context for cohort');
+        }
+    }
+
+    if (property_exists($cohort, 'idnumber')) {
+        if (trim($cohort->idnumber) === '') {
+            $cohort->idnumber = null;
+        } else if ($oldcohort->idnumber !== $cohort->idnumber) {
+            $select = 'idnumber = ? AND id <> ?';
+            if ($DB->record_exists_select('cohort', $select, [$cohort->idnumber, $cohort->id])) {
+                throw new invalid_parameter_exception('Duplicate cohort idnumber detected');
+            }
+        }
+    }
+
     if (property_exists($cohort, 'component') and empty($cohort->component)) {
         // prevent NULLs
         $cohort->component = '';
@@ -101,10 +138,18 @@ function cohort_update_cohort($cohort) {
     $cohort->timemodified = time();
     $DB->update_record('cohort', $cohort);
 
+    if ($newparent) {
+        $context->update_moved($newparent);
+    }
+
+    $trans->allow_commit();
+
+    $cohort = $DB->get_record('cohort', ['id' => $cohort->id], '*', MUST_EXIST);
     $event = \core\event\cohort_updated::create(array(
-        'context' => context::instance_by_id($cohort->contextid),
+        'context' => $context,
         'objectid' => $cohort->id,
     ));
+    $event->add_record_snapshot('cohort', $cohort);
     $event->trigger();
 }
 
@@ -113,21 +158,32 @@ function cohort_update_cohort($cohort) {
  * @param  stdClass $cohort
  * @return void
  */
-function cohort_delete_cohort($cohort) {
+function cohort_delete_cohort($cohort): void {
     global $DB;
+
+    // Make sure the cohort still exists.
+    $cohort = $DB->get_record('cohort', ['id' => $cohort->id]);
+    if (!$cohort) {
+        // Nothing to do.
+        return;
+    }
 
     if ($cohort->component) {
         // TODO: add component delete callback
     }
 
+    $context = context_cohort::instance($cohort->id);
+
     $DB->delete_records('cohort_members', array('cohortid'=>$cohort->id));
     $DB->delete_records('cohort', array('id'=>$cohort->id));
+
+    $context->delete();
 
     // Notify the competency subsystem.
     \core_competency\api::hook_cohort_deleted($cohort);
 
     $event = \core\event\cohort_deleted::create(array(
-        'context' => context::instance_by_id($cohort->contextid),
+        'context' => $context,
         'objectid' => $cohort->id,
     ));
     $event->add_record_snapshot('cohort', $cohort);
@@ -143,21 +199,37 @@ function cohort_delete_cohort($cohort) {
  */
 function cohort_delete_category($category) {
     global $DB;
-    // TODO: make sure that cohorts are really, really not used anywhere and delete, for now just move to parent or system context
 
     $oldcontext = context_coursecat::instance($category->id);
 
-    if ($category->parent and $parent = $DB->get_record('course_categories', array('id'=>$category->parent))) {
-        $parentcontext = context_coursecat::instance($parent->id);
-        $sql = "UPDATE {cohort} SET contextid = :newcontext WHERE contextid = :oldcontext";
-        $params = array('oldcontext'=>$oldcontext->id, 'newcontext'=>$parentcontext->id);
-    } else {
-        $syscontext = context_system::instance();
-        $sql = "UPDATE {cohort} SET contextid = :newcontext WHERE contextid = :oldcontext";
-        $params = array('oldcontext'=>$oldcontext->id, 'newcontext'=>$syscontext->id);
+    $cohorts = $DB->get_records('cohort', ['contextid' => $oldcontext->id], 'id ASC', 'id, contextid');
+    if (!$cohorts) {
+        // Nothing to do, there are no cohorts in deleted category.
+        return;
     }
 
-    $DB->execute($sql, $params);
+    if ($category->parent) {
+        $newparent = context_coursecat::instance($category->parent, IGNORE_MISSING);
+        if (!$newparent) {
+            $newparent = context_system::instance();
+        }
+    } else {
+        $newparent = context_system::instance();
+    }
+
+    foreach ($cohorts as $cohort) {
+        $context = context_cohort::instance($cohort->id);
+        $DB->set_field('cohort', 'contextid', $newparent->id, ['id' => $cohort->id]);
+        $context->update_moved($newparent);
+
+        $cohort = $DB->get_record('cohort', ['id' => $cohort->id], '*', MUST_EXIST);
+        $event = \core\event\cohort_updated::create(array(
+            'context' => $context,
+            'objectid' => $cohort->id,
+        ));
+        $event->add_record_snapshot('cohort', $cohort);
+        $event->trigger();
+    }
 }
 
 /**
@@ -180,8 +252,9 @@ function cohort_add_member($cohortid, $userid) {
 
     $cohort = $DB->get_record('cohort', array('id' => $cohortid), '*', MUST_EXIST);
 
+    $context = context_cohort::instance($cohort->id);
     $event = \core\event\cohort_member_added::create(array(
-        'context' => context::instance_by_id($cohort->contextid),
+        'context' => $context,
         'objectid' => $cohortid,
         'relateduserid' => $userid,
     ));
@@ -201,8 +274,9 @@ function cohort_remove_member($cohortid, $userid) {
 
     $cohort = $DB->get_record('cohort', array('id' => $cohortid), '*', MUST_EXIST);
 
+    $context = context_cohort::instance($cohort->id);
     $event = \core\event\cohort_member_removed::create(array(
-        'context' => context::instance_by_id($cohort->contextid),
+        'context' => $context,
         'objectid' => $cohortid,
         'relateduserid' => $userid,
     ));
@@ -343,6 +417,29 @@ function cohort_can_view_cohort($cohortorid, $currentcontext) {
 }
 
 /**
+ * Check if user can see cohort details in management UI.
+ *
+ * @since Moodle 4.1
+ * @param stdClass $cohort cohort object
+ * @return bool
+ */
+function cohort_can_view_cohort_details(stdClass $cohort): bool {
+    // No need to check of parent context is instance of system or category,
+    // we do it in code that modifies the database.
+    $parentcontext = context::instance_by_id($cohort->contextid);
+    if (has_capability('moodle/cohort:view', $parentcontext)) {
+        return true;
+    }
+
+    $cohortcontext = context_cohort::instance($cohort->id);
+    if (has_capability('moodle/cohort:manage', $cohortcontext)) {
+        return true;
+    }
+
+    return false;
+}
+
+/**
  * Get a cohort by id. Also does a visibility check and returns false if the user cannot see this cohort.
  *
  * @param stdClass|int $cohortorid cohort object or id
@@ -361,8 +458,8 @@ function cohort_get_cohort($cohortorid, $currentcontext) {
         if ($cohort->visible) {
             return $cohort;
         }
-        $cohortcontext = context::instance_by_id($cohort->contextid);
-        if (has_capability('moodle/cohort:view', $cohortcontext)) {
+        $parentcontext = context::instance_by_id($cohort->contextid);
+        if (has_capability('moodle/cohort:view', $parentcontext)) {
             return $cohort;
         }
     }
@@ -446,6 +543,9 @@ function cohort_get_cohorts($contextid, $page = 0, $perpage = 25, $search = '') 
  * The function assumes that user capability to view/manage cohorts on system level
  * has already been verified. This function only checks if such capabilities have been
  * revoked in child (categories) contexts.
+ *
+ * NOTE: if user has permissions only at the cohort level, then they have to bookmark
+ * a link to access it directly for now.
  *
  * @param int $page number of the current page
  * @param int $perpage items per page
@@ -535,6 +635,8 @@ function cohort_get_user_cohort_theme($userid) {
  * This function is called from {@link cohort_get_all_cohorts()} to ensure correct pagination in rare cases when user
  * is revoked capability in child contexts. It assumes that user's capability to view/manage cohorts on system
  * level has already been verified.
+ *
+ * NOTE: This function ignores permission granted or removed at the cohort context level.
  *
  * @access private
  *

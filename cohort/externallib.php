@@ -128,7 +128,7 @@ class core_cohort_external extends external_api {
 
             list($cohort->description, $cohort->descriptionformat) =
                 external_format_text($cohort->description, $cohort->descriptionformat,
-                        $context->id, 'cohort', 'description', $cohort->id);
+                        $context->id, 'cohort', 'description', null);
             $cohortids[] = (array)$cohort;
         }
         $transaction->allow_commit();
@@ -193,10 +193,7 @@ class core_cohort_external extends external_api {
             $cohort = $DB->get_record('cohort', array('id' => $cohortid), '*', MUST_EXIST);
 
             // Now security checks.
-            $context = context::instance_by_id($cohort->contextid, MUST_EXIST);
-            if ($context->contextlevel != CONTEXT_COURSECAT and $context->contextlevel != CONTEXT_SYSTEM) {
-                throw new invalid_parameter_exception('Invalid context');
-            }
+            $context = context_cohort::instance($cohort->id);
             self::validate_context($context);
             require_capability('moodle/cohort:manage', $context);
             cohort_delete_cohort($cohort);
@@ -240,6 +237,7 @@ class core_cohort_external extends external_api {
      */
     public static function get_cohorts($cohortids = array()) {
         global $DB, $CFG;
+        require_once("$CFG->dirroot/cohort/lib.php");
 
         $params = self::validate_parameters(self::get_cohorts_parameters(), array('cohortids' => $cohortids));
 
@@ -252,12 +250,10 @@ class core_cohort_external extends external_api {
         $cohortsinfo = array();
         foreach ($cohorts as $cohort) {
             // Now security checks.
-            $context = context::instance_by_id($cohort->contextid, MUST_EXIST);
-            if ($context->contextlevel != CONTEXT_COURSECAT and $context->contextlevel != CONTEXT_SYSTEM) {
-                throw new invalid_parameter_exception('Invalid context');
-            }
-            self::validate_context($context);
-            if (!has_any_capability(array('moodle/cohort:manage', 'moodle/cohort:view'), $context)) {
+            $context = context::instance_by_id($cohort->contextid);
+            $cohortcontext = context_cohort::instance($cohort->id);
+            self::validate_context($cohortcontext);
+            if (!cohort_can_view_cohort_details($cohort)) {
                 throw new required_capability_exception($context, 'moodle/cohort:view', 'nopermissions', '');
             }
 
@@ -268,7 +264,7 @@ class core_cohort_external extends external_api {
 
             list($cohort->description, $cohort->descriptionformat) =
                 external_format_text($cohort->description, $cohort->descriptionformat,
-                        $context->id, 'cohort', 'description', $cohort->id);
+                        $cohortcontext->id, 'cohort', 'description', null);
 
             $cohortsinfo[] = (array) $cohort;
         }
@@ -388,7 +384,7 @@ class core_cohort_external extends external_api {
 
         $cohorts = array();
         foreach ($results as $key => $cohort) {
-            $cohortcontext = context::instance_by_id($cohort->contextid);
+            $cohortcontext = context_cohort::instance($cohort->id);
 
             // Only return theme when $CFG->allowcohortthemes is enabled.
             if (!empty($cohort->theme) && empty($CFG->allowcohortthemes)) {
@@ -402,9 +398,15 @@ class core_cohort_external extends external_api {
                 $cohort->descriptionformat = FORMAT_PLAIN;
             }
 
-            list($cohort->description, $cohort->descriptionformat) =
-                external_format_text($cohort->description, $cohort->descriptionformat,
-                        $cohortcontext->id, 'cohort', 'description', $cohort->id);
+            if (cohort_can_view_cohort_details($cohort)) {
+                list($cohort->description, $cohort->descriptionformat) =
+                    external_format_text($cohort->description, $cohort->descriptionformat,
+                        $cohortcontext->id, 'cohort', 'description', null);
+            } else {
+                list($cohort->description, $cohort->descriptionformat) =
+                    external_format_text($cohort->description, $cohort->descriptionformat,
+                        $context->id, 'cohort', 'description', $cohort->id);
+            }
 
             $cohorts[$key] = $cohort;
         }
@@ -498,8 +500,9 @@ class core_cohort_external extends external_api {
             }
 
             $oldcohort = $DB->get_record('cohort', array('id' => $cohort->id), '*', MUST_EXIST);
-            $oldcontext = context::instance_by_id($oldcohort->contextid, MUST_EXIST);
-            require_capability('moodle/cohort:manage', $oldcontext);
+            $cohortcontext = context_cohort::instance($oldcohort->id);
+            self::validate_context($cohortcontext);
+            require_capability('moodle/cohort:manage', $cohortcontext);
 
             // Category type (context id).
             $categorytype = $cohort->categorytype;
@@ -517,7 +520,7 @@ class core_cohort_external extends external_api {
 
             if ($cohort->contextid != $oldcohort->contextid) {
                 $context = context::instance_by_id($cohort->contextid, MUST_EXIST);
-                if ($context->contextlevel != CONTEXT_COURSECAT and $context->contextlevel != CONTEXT_SYSTEM) {
+                if (!in_array($context->contextlevel, context_cohort::get_possible_parent_levels())) {
                     throw new invalid_parameter_exception('Invalid context');
                 }
 
@@ -650,19 +653,12 @@ class core_cohort_external extends external_api {
                     continue;
                 }
                 $cohort = $DB->get_record('cohort', array('id'=>$cohortid), '*', MUST_EXIST);
-                $context = context::instance_by_id($cohort->contextid, MUST_EXIST);
-                if ($context->contextlevel != CONTEXT_COURSECAT and $context->contextlevel != CONTEXT_SYSTEM) {
-                    $warning = array();
-                    $warning['warningcode'] = '1';
-                    $warning['message'] = 'Invalid context: '.$context->contextlevel;
-                    $warnings[] = $warning;
-                    continue;
-                }
+                $context = context_cohort::instance($cohort->id);
                 self::validate_context($context);
             } catch (Exception $e) {
                 throw new moodle_exception('Error', 'cohort', '', $e->getMessage());
             }
-            if (!has_any_capability(array('moodle/cohort:manage', 'moodle/cohort:assign'), $context)) {
+            if (!has_capability('moodle/cohort:assign', $context)) {
                 throw new required_capability_exception($context, 'moodle/cohort:assign', 'nopermissions', '');
             }
             cohort_add_member($cohortid, $userid);
@@ -733,12 +729,9 @@ class core_cohort_external extends external_api {
                 '*', MUST_EXIST);
 
             // Now security checks.
-            $context = context::instance_by_id($cohort->contextid, MUST_EXIST);
-            if ($context->contextlevel != CONTEXT_COURSECAT and $context->contextlevel != CONTEXT_SYSTEM) {
-                throw new invalid_parameter_exception('Invalid context');
-            }
+            $context = context_cohort::instance($cohort->id);
             self::validate_context($context);
-            if (!has_any_capability(array('moodle/cohort:manage', 'moodle/cohort:assign'), $context)) {
+            if (!has_capability('moodle/cohort:assign', $context)) {
                 throw new required_capability_exception($context, 'moodle/cohort:assign', 'nopermissions', '');
             }
 
@@ -779,7 +772,9 @@ class core_cohort_external extends external_api {
      * @since Moodle 2.5
      */
     public static function get_cohort_members($cohortids) {
-        global $DB;
+        global $DB, $CFG;
+        require_once("$CFG->dirroot/cohort/lib.php");
+
         $params = self::validate_parameters(self::get_cohort_members_parameters(), array('cohortids' => $cohortids));
 
         $members = array();
@@ -788,12 +783,10 @@ class core_cohort_external extends external_api {
             // Validate params.
             $cohort = $DB->get_record('cohort', array('id' => $cohortid), '*', MUST_EXIST);
             // Now security checks.
-            $context = context::instance_by_id($cohort->contextid, MUST_EXIST);
-            if ($context->contextlevel != CONTEXT_COURSECAT and $context->contextlevel != CONTEXT_SYSTEM) {
-                throw new invalid_parameter_exception('Invalid context');
-            }
-            self::validate_context($context);
-            if (!has_any_capability(array('moodle/cohort:manage', 'moodle/cohort:view'), $context)) {
+            $context = context::instance_by_id($cohort->contextid);
+            $cohortcontext = context_cohort::instance($cohort->id);
+            self::validate_context($cohortcontext);
+            if (!cohort_can_view_cohort_details($cohort)) {
                 throw new required_capability_exception($context, 'moodle/cohort:view', 'nopermissions', '');
             }
 
