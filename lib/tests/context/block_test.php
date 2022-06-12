@@ -27,9 +27,12 @@ use core\context, core\context_helper;
  * @author    Petr Skoda
  * @copyright 2022 Open LMS
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers    \core\context\block
+ * @coversDefaultClass \core\context\block
  */
 class block_test extends \advanced_testcase {
+    /**
+     * @coversNothing
+     */
     public function test_legacy_classname() {
         $this->resetAfterTest();
 
@@ -40,6 +43,10 @@ class block_test extends \advanced_testcase {
         $this->assertInstanceOf(\context_block::class, $context);
     }
 
+    /**
+     * @covers ::instance
+     * @covers \core\context::instance_by_id
+     */
     public function test_factory_methods() {
         $this->resetAfterTest();
 
@@ -54,15 +61,24 @@ class block_test extends \advanced_testcase {
         $this->assertSame((string)$block->id, $context->instanceid);
     }
 
+    /**
+     * @coversNothing
+     */
     public function test_level() {
         $this->assertSame(80, block::LEVEL);
         $this->assertSame(CONTEXT_BLOCK, block::LEVEL);
     }
 
+    /**
+     * @covers ::get_level_name
+     */
     public function test_get_level_name() {
         $this->assertSame('Block', block::get_level_name());
     }
 
+    /**
+     * @covers ::get_context_name
+     */
     public function test_get_context_name() {
         $this->resetAfterTest();
 
@@ -76,6 +92,9 @@ class block_test extends \advanced_testcase {
         $this->assertSame('Block: Online users', $context->get_context_name(true, true, false));
     }
 
+    /**
+     * @covers ::get_url
+     */
     public function test_get_url() {
         $this->resetAfterTest();
 
@@ -88,6 +107,9 @@ class block_test extends \advanced_testcase {
         $this->assertSame($expected->out(), $url->out());
     }
 
+    /**
+     * @covers ::get_compatible_role_archetypes
+     */
     public function test_get_compatible_role_archetypes() {
         global $DB;
 
@@ -98,6 +120,9 @@ class block_test extends \advanced_testcase {
         }
     }
 
+    /**
+     * @covers ::get_possible_parent_levels
+     */
     public function test_get_possible_parent_levels() {
         $result = block::get_possible_parent_levels();
         // All except itself.
@@ -113,6 +138,9 @@ class block_test extends \advanced_testcase {
         $this->assertCount(count($all) - 1, $result);
     }
 
+    /**
+     * @covers ::get_capabilities
+     */
     public function test_get_capabilities() {
         $this->resetAfterTest();
 
@@ -130,6 +158,9 @@ class block_test extends \advanced_testcase {
         $this->assertNotContains('mod/url:view', $capabilities);
     }
 
+    /**
+     * @covers ::create_level_instances
+     */
     public function test_create_level_instances() {
         global $DB;
         $this->resetAfterTest();
@@ -142,6 +173,9 @@ class block_test extends \advanced_testcase {
         $record = $DB->get_record('context', ['contextlevel' => block::LEVEL, 'instanceid' => $block->id], '*', MUST_EXIST);
     }
 
+    /**
+     * @covers ::get_child_contexts
+     */
     public function test_get_child_contexts() {
         $this->resetAfterTest();
 
@@ -152,6 +186,9 @@ class block_test extends \advanced_testcase {
         $this->assertCount(0, $children);
     }
 
+    /**
+     * @covers ::get_cleanup_sql
+     */
     public function test_get_cleanup_sql() {
         global $DB;
         $this->resetAfterTest();
@@ -165,6 +202,9 @@ class block_test extends \advanced_testcase {
         $this->assertFalse($DB->record_exists('context', ['contextlevel' => block::LEVEL, 'instanceid' => $block->id]));
     }
 
+    /**
+     * @covers ::build_paths
+     */
     public function test_build_paths() {
         global $DB;
         $this->resetAfterTest();
@@ -183,6 +223,9 @@ class block_test extends \advanced_testcase {
         $this->assertSame('/' . $syscontext->id . '/' . $record->id, $record->path);
     }
 
+    /**
+     * @covers ::set_locked
+     */
     public function test_set_locked() {
         global $DB;
         $this->resetAfterTest();

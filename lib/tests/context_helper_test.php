@@ -25,9 +25,12 @@ namespace core;
  * @author    Petr Skoda
  * @copyright 2022 Open LMS
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers    \core\context_helper
+ * @coversDefaultClass \core\context_helper
  */
 class context_helper_test extends \advanced_testcase {
+    /**
+     * @covers ::parse_external_level
+     */
     public function test_parse_external_level() {
         $this->assertSame(context\system::class, context_helper::parse_external_level('system'));
         $this->assertSame(context\system::class, context_helper::parse_external_level(CONTEXT_SYSTEM));
@@ -59,6 +62,9 @@ class context_helper_test extends \advanced_testcase {
         $this->assertNull(context_helper::parse_external_level(''));
     }
 
+    /**
+     * @covers ::resolve_behat_reference
+     */
     public function test_resolve_behat_reference() {
         $this->assertNull(context_helper::resolve_behat_reference('blahbla', 'blahbla'));
         $this->assertNull(context_helper::resolve_behat_reference('', ''));
@@ -75,6 +81,9 @@ class context_helper_test extends \advanced_testcase {
         // The rest is tested in each context class test.
     }
 
+    /**
+     * @covers ::get_class_for_level
+     */
     public function test_get_class_for_level() {
         $this->assertSame(context\system::class, context_helper::get_class_for_level(CONTEXT_SYSTEM));
         $this->assertSame(context\system::class, context_helper::get_class_for_level((string)CONTEXT_SYSTEM));
@@ -103,6 +112,9 @@ class context_helper_test extends \advanced_testcase {
         }
     }
 
+    /**
+     * @covers ::get_all_levels
+     */
     public function test_get_all_levels() {
         $levels = context_helper::get_all_levels();
 
@@ -140,6 +152,9 @@ class context_helper_test extends \advanced_testcase {
         }
     }
 
+    /**
+     * @covers ::get_child_levels
+     */
     public function test_get_child_levels() {
         $alllevels = context_helper::get_all_levels();
 
@@ -182,6 +197,9 @@ class context_helper_test extends \advanced_testcase {
         $this->assertCount(0, $childlevels);
     }
 
+    /**
+     * @covers ::get_compatible_levels
+     */
     public function test_get_compatible_levels() {
         $levels = context_helper::get_compatible_levels('manager');
         $this->assertContains(CONTEXT_SYSTEM, $levels);
@@ -233,6 +251,9 @@ class context_helper_test extends \advanced_testcase {
         $this->assertCount(0, $levels);
     }
 
+    /**
+     * @covers ::cleanup_instances
+     */
     public function test_cleanup_instances() {
         global $DB;
 
@@ -264,6 +285,9 @@ class context_helper_test extends \advanced_testcase {
         $this->assertSame($prevcount, $count);
     }
 
+    /**
+     * @covers ::create_instances
+     */
     public function test_create_instances() {
         global $DB;
 
@@ -290,6 +314,9 @@ class context_helper_test extends \advanced_testcase {
         $this->assertSame($prevcount, $count);
     }
 
+    /**
+     * @covers ::build_all_paths
+     */
     public function test_build_all_paths() {
         $this->resetAfterTest();
         $this->preventResetByRollback();
@@ -299,6 +326,9 @@ class context_helper_test extends \advanced_testcase {
         context_helper::build_all_paths();
     }
 
+    /**
+     * @covers ::reset_caches
+     */
     public function test_reset_caches() {
         $this->resetAfterTest();
         $this->preventResetByRollback();
@@ -307,6 +337,9 @@ class context_helper_test extends \advanced_testcase {
         context_helper::reset_caches();
     }
 
+    /**
+     * @covers ::get_preload_record_columns
+     */
     public function test_get_preload_record_columns() {
         $expected = array (
             'testalias.id' => 'ctxid',
@@ -320,6 +353,9 @@ class context_helper_test extends \advanced_testcase {
         $this->assertSame($expected, $result);
     }
 
+    /**
+     * @covers ::get_preload_record_columns_sql
+     */
     public function test_get_preload_record_columns_sql() {
         global $DB;
 
@@ -333,6 +369,9 @@ class context_helper_test extends \advanced_testcase {
         $DB->get_records_sql($sql, []);
     }
 
+    /**
+     * @covers ::preload_from_record
+     */
     public function test_preload_from_record() {
         global $DB;
 
@@ -353,6 +392,9 @@ class context_helper_test extends \advanced_testcase {
         $this->assertDebuggingNotCalled();
     }
 
+    /**
+     * @covers ::preload_contexts_by_id
+     */
     public function test_preload_contexts_by_id() {
         global $DB;
 
@@ -364,11 +406,17 @@ class context_helper_test extends \advanced_testcase {
         context_helper::preload_contexts_by_id($contextids);
     }
 
+    /**
+     * @covers ::preload_course
+     */
     public function test_preload_course() {
         global $SITE;
         context_helper::preload_course($SITE->id);
     }
 
+    /**
+     * @covers ::delete_instance
+     */
     public function test_delete_instance() {
         $this->resetAfterTest();
 
@@ -385,6 +433,9 @@ class context_helper_test extends \advanced_testcase {
         context_helper::delete_instance(CONTEXT_MODULE, $page->cmid);
     }
 
+    /**
+     * @covers ::get_level_name
+     */
     public function test_get_level_name() {
         $allevels = context_helper::get_all_levels();
         foreach ($allevels as $level => $classname) {
@@ -400,6 +451,9 @@ class context_helper_test extends \advanced_testcase {
         $this->assertSame('Block', context_helper::get_level_name(CONTEXT_BLOCK));
     }
 
+    /**
+     * @covers ::get_navigation_filter_context
+     */
     public function test_get_navigation_filter_context() {
         global $CFG;
         $this->resetAfterTest();

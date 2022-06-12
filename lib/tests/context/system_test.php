@@ -27,15 +27,22 @@ use core\context, core\context_helper;
  * @author    Petr Skoda
  * @copyright 2022 Open LMS
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers    \core\context\system
+ * @coversDefaultClass \core\context\system
  */
 class system_test extends \advanced_testcase {
+    /**
+     * @coversNothing
+     */
     public function test_legacy_classname() {
         $context = \context_system::instance();
         $this->assertInstanceOf(system::class, $context);
         $this->assertInstanceOf(\context_system::class, $context);
     }
 
+    /**
+     * @covers ::instance
+     * @covers \core\context::instance_by_id
+     */
     public function test_factory_methods() {
         $context = system::instance();
         $this->assertInstanceOf(system::class, $context);
@@ -46,15 +53,24 @@ class system_test extends \advanced_testcase {
         $this->assertEquals(SYSCONTEXTID, $context->id);
     }
 
+    /**
+     * @coversNothing
+     */
     public function test_level() {
         $this->assertSame(10, system::LEVEL);
         $this->assertSame(CONTEXT_SYSTEM, system::LEVEL);
     }
 
+    /**
+     * @covers ::get_level_name
+     */
     public function test_get_level_name() {
         $this->assertSame('System', system::get_level_name());
     }
 
+    /**
+     * @covers ::get_context_name
+     */
     public function test_get_context_name() {
         $context = system::instance();
         $this->assertSame('System', $context->get_context_name());
@@ -64,6 +80,9 @@ class system_test extends \advanced_testcase {
         $this->assertSame('System', $context->get_context_name(true, true, false));
     }
 
+    /**
+     * @covers ::get_url
+     */
     public function test_get_url() {
         $context = system::instance();
         $expected = new \moodle_url('/');
@@ -72,6 +91,9 @@ class system_test extends \advanced_testcase {
         $this->assertSame($expected->out(), $url->out());
     }
 
+    /**
+     * @covers \core\context_helper::resolve_behat_reference
+     */
     public function test_resolve_behat_reference() {
         $syscontext = context\system::instance();
 
@@ -88,6 +110,9 @@ class system_test extends \advanced_testcase {
         $this->assertSame($syscontext->id, $result->id);
     }
 
+    /**
+     * @covers ::get_compatible_role_archetypes
+     */
     public function test_get_compatible_role_archetypes() {
         global $DB;
 
@@ -102,10 +127,16 @@ class system_test extends \advanced_testcase {
         }
     }
 
+    /**
+     * @covers ::get_possible_parent_levels
+     */
     public function test_get_possible_parent_levels() {
         $this->assertSame([], system::get_possible_parent_levels());
     }
 
+    /**
+     * @covers ::get_capabilities
+     */
     public function test_get_capabilities() {
         global $DB;
 
@@ -115,10 +146,16 @@ class system_test extends \advanced_testcase {
         $this->assertCount($expected, $capabilities);
     }
 
+    /**
+     * @covers ::create_level_instances
+     */
     public function test_create_level_instances() {
         context_helper::create_instances(system::LEVEL);
     }
 
+    /**
+     * @covers ::get_child_contexts
+     */
     public function test_get_child_contexts() {
         global $DB;
 
@@ -129,11 +166,17 @@ class system_test extends \advanced_testcase {
         $this->assertDebuggingCalled('Fetching of system context child courses is strongly discouraged on production servers (it may eat all available memory)!');
     }
 
+    /**
+     * @covers ::get_cleanup_sql
+     */
     public function test_get_cleanup_sql() {
         // Nothing to clean up actually.
         context_helper::cleanup_instances();
     }
 
+    /**
+     * @covers ::build_paths
+     */
     public function test_build_paths() {
         global $DB;
         $this->resetAfterTest();
@@ -148,6 +191,9 @@ class system_test extends \advanced_testcase {
         $this->assertSame('/' . $record->id, $record->path);
     }
 
+    /**
+     * @covers ::set_locked
+     */
     public function test_set_locked() {
         $context = system::instance();
 

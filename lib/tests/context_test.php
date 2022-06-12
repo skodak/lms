@@ -25,9 +25,12 @@ namespace core;
  * @author    Petr Skoda
  * @copyright 2022 Open LMS
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers    \core\context
+ * @coversDefaultClass  \core\context
  */
 class context_test extends \advanced_testcase {
+    /**
+     * @coversNothing
+     */
     public function test_legacy_classname() {
         $this->assertSame('core\context', context::class);
 
@@ -36,11 +39,18 @@ class context_test extends \advanced_testcase {
         $this->assertInstanceOf('context', $context);
     }
 
+    /**
+     * @covers ::instance_by_id
+     */
     public function test_factory_methods() {
         $context = context::instance_by_id(SYSCONTEXTID);
         $this->assertSame('core\\context\\system', get_class($context));
     }
 
+    /**
+     * @covers ::__set
+     * @covers ::__unset
+     */
     public function test_propery_change_protection() {
         $context = context\system::instance();
 
@@ -63,6 +73,9 @@ class context_test extends \advanced_testcase {
         $this->assertDebuggingCalled('Can not unset context instance properties!');
     }
 
+    /**
+     * @covers ::__get
+     */
     public function test_incorrect_property() {
         $context = context\system::instance();
 
@@ -70,6 +83,9 @@ class context_test extends \advanced_testcase {
         $this->assertDebuggingCalled('Invalid context property accessed! whatever');
     }
 
+    /**
+     * @covers ::getIterator
+     */
     public function test_iterator() {
         $context = context\system::instance();
         $array = iterator_to_array($context->getIterator());

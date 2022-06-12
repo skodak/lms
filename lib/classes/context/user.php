@@ -67,8 +67,8 @@ class user extends context {
         global $DB;
 
         $name = '';
-        if ($user = $DB->get_record('user', array('id'=>$this->_instanceid, 'deleted'=>0))) {
-            if ($withprefix){
+        if ($user = $DB->get_record('user', array('id' => $this->_instanceid, 'deleted' => 0))) {
+            if ($withprefix) {
                 $name = get_string('user').': ';
             }
             $name .= fullname($user);
@@ -85,9 +85,9 @@ class user extends context {
         global $COURSE;
 
         if ($COURSE->id == SITEID) {
-            $url = new moodle_url('/user/profile.php', array('id'=>$this->_instanceid));
+            $url = new moodle_url('/user/profile.php', array('id' => $this->_instanceid));
         } else {
-            $url = new moodle_url('/user/view.php', array('id'=>$this->_instanceid, 'courseid'=>$COURSE->id));
+            $url = new moodle_url('/user/view.php', array('id' => $this->_instanceid, 'courseid' => $COURSE->id));
         }
         return $url;
     }

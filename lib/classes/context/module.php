@@ -73,7 +73,7 @@ class module extends context {
                                          JOIN {modules} md ON md.id = cm.module
                                         WHERE cm.id = ?", array($this->_instanceid))) {
             if ($mod = $DB->get_record($cm->modname, array('id' => $cm->instance))) {
-                if ($withprefix){
+                if ($withprefix) {
                     $name = get_string('modulename', $cm->modname).': ';
                 }
                 if (!$escape) {
@@ -98,7 +98,7 @@ class module extends context {
                                              FROM {course_modules} cm
                                              JOIN {modules} md ON md.id = cm.module
                                             WHERE cm.id = ?", array($this->_instanceid))) {
-            return new moodle_url('/mod/' . $modname . '/view.php', array('id'=>$this->_instanceid));
+            return new moodle_url('/mod/' . $modname . '/view.php', array('id' => $this->_instanceid));
         }
 
         return new moodle_url('/');
@@ -153,8 +153,8 @@ class module extends context {
     public function get_capabilities(string $sort = self::DEFAULT_CAPABILITY_SORT) {
         global $DB, $CFG;
 
-        $cm = $DB->get_record('course_modules', array('id'=>$this->_instanceid));
-        $module = $DB->get_record('modules', array('id'=>$cm->module));
+        $cm = $DB->get_record('course_modules', array('id' => $this->_instanceid));
+        $module = $DB->get_record('modules', array('id' => $cm->module));
 
         $subcaps = array();
 
@@ -165,13 +165,13 @@ class module extends context {
             debugging('Use of subplugins.php has been deprecated. ' .
                 'Please update your plugin to provide a subplugins.json file instead.',
                 DEBUG_DEVELOPER);
-            $subplugins = array();  // should be redefined in the file
+            $subplugins = array();  // Should be redefined in the file.
             include("{$modulepath}/db/subplugins.php");
         }
 
         if (!empty($subplugins)) {
             foreach (array_keys($subplugins) as $subplugintype) {
-                foreach (array_keys(core_component::get_plugin_list($subplugintype)) as $subpluginname) {
+                foreach (array_keys(\core_component::get_plugin_list($subplugintype)) as $subpluginname) {
                     $subcaps = array_merge($subcaps, array_keys(load_capability_def($subplugintype.'_'.$subpluginname)));
                 }
             }
@@ -204,7 +204,6 @@ class module extends context {
         // Exclude all other modules.
         list($notcompsql, $notcompparams) = $DB->get_in_or_equal($componentnames, SQL_PARAMS_NAMED, 'notcomp', false);
         $params = array_merge($params, $notcompparams);
-
 
         // Exclude other component submodules.
         $i = 0;

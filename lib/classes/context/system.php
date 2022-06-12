@@ -112,7 +112,7 @@ class system extends context {
      * Create missing context instances at system context
      */
     protected static function create_level_instances() {
-        // nothing to do here, the system context is created automatically in installer
+        // Nothing to do here, the system context is created automatically in installer.
         self::instance(0);
     }
 
@@ -150,9 +150,9 @@ class system extends context {
             // We ignore the strictness completely because system context must exist except during install.
             $record = $DB->get_record('context', array('contextlevel' => self::LEVEL), '*', MUST_EXIST);
         } catch (\dml_exception $e) {
-            //table or record does not exist
+            // Table or record does not exist.
             if (!during_initial_install()) {
-                // do not mess with system context after install, it simply must exist
+                // Do not mess with system context after install, it simply must exist.
                 throw $e;
             }
             $record = null;
@@ -168,11 +168,11 @@ class system extends context {
 
             try {
                 if ($DB->count_records('context')) {
-                    // contexts already exist, this is very weird, system must be first!!!
+                    // Contexts already exist, this is very weird, system must be first!!!
                     return null;
                 }
                 if (defined('SYSCONTEXTID')) {
-                    // this would happen only in unittest on sites that went through weird 1.7 upgrade
+                    // This would happen only in unittest on sites that went through weird 1.7 upgrade.
                     $record->id = SYSCONTEXTID;
                     $DB->import_record('context', $record);
                     $DB->get_manager()->reset_sequence('context');
@@ -180,18 +180,18 @@ class system extends context {
                     $record->id = $DB->insert_record('context', $record);
                 }
             } catch (\dml_exception $e) {
-                // can not create context - table does not exist yet, sorry
+                // Can not create context - table does not exist yet, sorry.
                 return null;
             }
         }
 
         if ($record->instanceid != 0) {
-            // this is very weird, somebody must be messing with context table
+            // This is very weird, somebody must be messing with context table.
             debugging('Invalid system context detected');
         }
 
         if ($record->depth != 1 or $record->path != '/'.$record->id) {
-            // fix path if necessary, initial install or path reset
+            // Fix path if necessary, initial install or path reset.
             $record->depth = 1;
             $record->path  = '/'.$record->id;
             $DB->update_record('context', $record);
@@ -222,7 +222,7 @@ class system extends context {
         debugging('Fetching of system context child courses is strongly discouraged on production servers (it may eat all available memory)!');
 
         // Just get all the contexts except for system level
-        // and hope we don't OOM in the process - don't cache
+        // and hope we don't OOM in the process - don't cache.
         $sql = "SELECT c.*
                   FROM {context} c
                  WHERE contextlevel > " . self::LEVEL;
@@ -261,7 +261,7 @@ class system extends context {
 
         /* note: ignore $force here, we always do full test of system context */
 
-        // exactly one record must exist
+        // Exactly one record must exist.
         $record = $DB->get_record('context', array('contextlevel' => self::LEVEL), '*', MUST_EXIST);
 
         if ($record->instanceid != 0) {
@@ -273,7 +273,7 @@ class system extends context {
         }
 
         if ($record->depth != 1 or $record->path != '/'.$record->id) {
-            // fix path if necessary, initial install or path reset
+            // Fix path if necessary, initial install or path reset.
             $record->depth    = 1;
             $record->path     = '/'.$record->id;
             $DB->update_record('context', $record);

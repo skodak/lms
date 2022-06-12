@@ -120,7 +120,6 @@ abstract class context extends stdClass implements IteratorAggregate {
 
     /**
      * Resets the cache to remove all data.
-     * @static
      */
     protected static function reset_caches() {
         self::$cache_contextsbyid = array();
@@ -135,13 +134,12 @@ abstract class context extends stdClass implements IteratorAggregate {
      * Adds a context to the cache. If the cache is full, discards a batch of
      * older entries.
      *
-     * @static
      * @param context $context New context to add
      * @return void
      */
     protected static function cache_add(context $context) {
         if (isset(self::$cache_contextsbyid[$context->id])) {
-            // already cached, no need to do anything - this is relatively cheap, we do all this because count() is slow
+            // Already cached, no need to do anything - this is relatively cheap, we do all this because count() is slow.
             return;
         }
 
@@ -150,11 +148,11 @@ abstract class context extends stdClass implements IteratorAggregate {
             foreach (self::$cache_contextsbyid as $ctx) {
                 $i++;
                 if ($i <= 100) {
-                    // we want to keep the first contexts to be loaded on this page, hopefully they will be needed again later
+                    // We want to keep the first contexts to be loaded on this page, hopefully they will be needed again later.
                     continue;
                 }
                 if ($i > (CONTEXT_CACHE_MAX_SIZE / 3)) {
-                    // we remove oldest third of the contexts to make room for more contexts
+                    // We remove oldest third of the contexts to make room for more contexts.
                     break;
                 }
                 unset(self::$cache_contextsbyid[$ctx->id]);
@@ -171,13 +169,12 @@ abstract class context extends stdClass implements IteratorAggregate {
     /**
      * Removes a context from the cache.
      *
-     * @static
      * @param context $context Context object to remove
      * @return void
      */
     protected static function cache_remove(context $context) {
         if (!isset(self::$cache_contextsbyid[$context->id])) {
-            // not cached, no need to do anything - this is relatively cheap, we do all this because count() is slow
+            // Not cached, no need to do anything - this is relatively cheap, we do all this because count() is slow.
             return;
         }
         unset(self::$cache_contexts[$context->contextlevel][$context->instanceid]);
@@ -193,7 +190,6 @@ abstract class context extends stdClass implements IteratorAggregate {
     /**
      * Gets a context from the cache.
      *
-     * @static
      * @param int $contextlevel Context level
      * @param int $instance Instance ID
      * @return context|bool Context or false if not in cache
@@ -208,7 +204,6 @@ abstract class context extends stdClass implements IteratorAggregate {
     /**
      * Gets a context from the cache based on its id.
      *
-     * @static
      * @param int $id Context ID
      * @return context|bool Context or false if not in cache
      */
@@ -222,7 +217,6 @@ abstract class context extends stdClass implements IteratorAggregate {
     /**
      * Preloads context information from db record and strips the cached info.
      *
-     * @static
      * @param stdClass $rec
      * @return context|null (modifies $rec)
      */
@@ -258,11 +252,11 @@ abstract class context extends stdClass implements IteratorAggregate {
         unset($rec->ctxdepth);
         unset($rec->ctxlocked);
 
-        return context::create_instance_from_record($record);
+        return self::create_instance_from_record($record);
     }
 
 
-    // ====== magic methods =======
+    /* ====== magic methods ======= */
 
     /**
      * Magic setter method, we do not want anybody to modify properties from the outside
@@ -332,7 +326,7 @@ abstract class context extends stdClass implements IteratorAggregate {
         debugging('Can not unset context instance properties!');
     }
 
-    // ====== implementing method from interface IteratorAggregate ======
+    /* ====== implementing method from interface IteratorAggregate ====== */
 
     /**
      * Create an iterator because magic vars can't be seen by 'foreach'.
@@ -352,7 +346,7 @@ abstract class context extends stdClass implements IteratorAggregate {
         return new ArrayIterator($ret);
     }
 
-    // ====== general context methods ======
+    /* ====== general context methods ====== */
 
     /**
      * Constructor is protected so that devs are forced to
@@ -376,19 +370,19 @@ abstract class context extends stdClass implements IteratorAggregate {
 
     /**
      * This function is also used to work around 'protected' keyword problems in context_helper.
-     * @static
+     *
      * @param stdClass $record
      * @return context instance
      */
     protected static function create_instance_from_record(stdClass $record) {
         $classname = context_helper::get_class_for_level($record->contextlevel);
 
-        if ($context = context::cache_get_by_id($record->id)) {
+        if ($context = self::cache_get_by_id($record->id)) {
             return $context;
         }
 
         $context = new $classname($record);
-        context::cache_add($context);
+        self::cache_add($context);
 
         return $context;
     }
@@ -396,7 +390,6 @@ abstract class context extends stdClass implements IteratorAggregate {
     /**
      * Copy prepared new contexts from temp table to context table,
      * we do this in db specific way for perf reasons only.
-     * @static
      */
     protected static function merge_context_temp_table() {
         global $DB;
@@ -434,7 +427,7 @@ abstract class context extends stdClass implements IteratorAggregate {
                             FROM {context_temp} temp
                            WHERE temp.id={context}.id";
         } else {
-            // sqlite and others
+            // Sqlite and others.
             $updatesql = "UPDATE {context}
                              SET path     = (SELECT path FROM {context_temp} WHERE id = {context}.id),
                                  depth    = (SELECT depth FROM {context_temp} WHERE id = {context}.id),
@@ -448,7 +441,6 @@ abstract class context extends stdClass implements IteratorAggregate {
     /**
      * Get a context instance as an object, from a given context id.
      *
-     * @static
      * @param int $id context id
      * @param int $strictness IGNORE_MISSING means compatible mode, false returned if record not found, debug message if more found;
      *                        MUST_EXIST means throw exception if no record found
@@ -458,7 +450,7 @@ abstract class context extends stdClass implements IteratorAggregate {
         global $DB;
 
         if (get_called_class() !== 'core\context' and get_called_class() !== 'core\context_helper') {
-            // some devs might confuse context->id and instanceid, better prevent these mistakes completely
+            // Some devs might confuse context->id and instanceid, better prevent these mistakes completely.
             throw new coding_exception('use only context::instance_by_id() for real context levels use ::instance() methods');
         }
 
@@ -470,12 +462,12 @@ abstract class context extends stdClass implements IteratorAggregate {
             throw new coding_exception('Invalid context id specified context::instance_by_id()');
         }
 
-        if ($context = context::cache_get_by_id($id)) {
+        if ($context = self::cache_get_by_id($id)) {
             return $context;
         }
 
-        if ($record = $DB->get_record('context', array('id'=>$id), '*', $strictness)) {
-            return context::create_instance_from_record($record);
+        if ($record = $DB->get_record('context', array('id' => $id), '*', $strictness)) {
+            return self::create_instance_from_record($record);
         }
 
         return false;
@@ -496,7 +488,7 @@ abstract class context extends stdClass implements IteratorAggregate {
         $trans = $DB->start_delegated_transaction();
 
         $setdepth = '';
-        if (($newparent->depth +1) != $this->_depth) {
+        if (($newparent->depth + 1) != $this->_depth) {
             $diff = $newparent->depth - $this->_depth + 1;
             $setdepth = ", depth = depth + $diff";
         }
@@ -511,7 +503,7 @@ abstract class context extends stdClass implements IteratorAggregate {
         $this->_depth = $newparent->depth + 1;
 
         $sql = "UPDATE {context}
-                   SET path = ".$DB->sql_concat("?", $DB->sql_substr("path", strlen($frompath)+1))."
+                   SET path = ".$DB->sql_concat("?", $DB->sql_substr("path", strlen($frompath) + 1))."
                        $setdepth
                  WHERE path LIKE ?";
         $params = array($newpath, "{$frompath}/%");
@@ -519,7 +511,7 @@ abstract class context extends stdClass implements IteratorAggregate {
 
         $this->mark_dirty();
 
-        context::reset_caches();
+        self::reset_caches();
 
         $trans->allow_commit();
     }
@@ -567,10 +559,10 @@ abstract class context extends stdClass implements IteratorAggregate {
             $this->mark_dirty();
         }
         $DB->set_field_select('context', 'depth', 0, "path LIKE '%/$this->_id/%'");
-        $DB->set_field_select('context', 'path', NULL, "path LIKE '%/$this->_id/%'");
+        $DB->set_field_select('context', 'path', null, "path LIKE '%/$this->_id/%'");
         if ($this->_contextlevel != CONTEXT_SYSTEM) {
-            $DB->set_field('context', 'depth', 0, array('id'=>$this->_id));
-            $DB->set_field('context', 'path', NULL, array('id'=>$this->_id));
+            $DB->set_field('context', 'depth', 0, array('id' => $this->_id));
+            $DB->set_field('context', 'path', null, array('id' => $this->_id));
             $this->_depth = 0;
             $this->_path = null;
         }
@@ -579,7 +571,7 @@ abstract class context extends stdClass implements IteratorAggregate {
             context_helper::build_all_paths(false);
         }
 
-        context::reset_caches();
+        self::reset_caches();
     }
 
     /**
@@ -592,7 +584,7 @@ abstract class context extends stdClass implements IteratorAggregate {
         filter_delete_all_for_context($this->_id);
 
         require_once($CFG->dirroot . '/comment/lib.php');
-        \comment::delete_comments(array('contextid'=>$this->_id));
+        \comment::delete_comments(array('contextid' => $this->_id));
 
         require_once($CFG->dirroot.'/rating/lib.php');
         $delopt = new stdclass();
@@ -600,7 +592,7 @@ abstract class context extends stdClass implements IteratorAggregate {
         $rm = new \rating_manager();
         $rm->delete_ratings($delopt);
 
-        // delete all files attached to this context
+        // Delete all files attached to this context.
         $fs = get_file_storage();
         $fs->delete_area_files($this->_id);
 
@@ -608,14 +600,14 @@ abstract class context extends stdClass implements IteratorAggregate {
         require_once($CFG->dirroot . '/repository/lib.php');
         \repository::delete_all_for_context($this->_id);
 
-        // delete all advanced grading data attached to this context
+        // Delete all advanced grading data attached to this context.
         require_once($CFG->dirroot.'/grade/grading/lib.php');
         \grading_manager::delete_all_for_context($this->_id);
 
-        // now delete stuff from role related tables, role_unassign_all
-        // and unenrol should be called earlier to do proper cleanup
-        $DB->delete_records('role_assignments', array('contextid'=>$this->_id));
-        $DB->delete_records('role_names', array('contextid'=>$this->_id));
+        // Now delete stuff from role related tables, role_unassign_all
+        // and unenrol should be called earlier to do proper cleanup.
+        $DB->delete_records('role_assignments', array('contextid' => $this->_id));
+        $DB->delete_records('role_names', array('contextid' => $this->_id));
         $this->delete_capabilities();
     }
 
@@ -644,27 +636,26 @@ abstract class context extends stdClass implements IteratorAggregate {
             throw new coding_exception('Cannot delete system context');
         }
 
-        // double check the context still exists
-        if (!$DB->record_exists('context', array('id'=>$this->_id))) {
-            context::cache_remove($this);
+        // Double check the context still exists.
+        if (!$DB->record_exists('context', array('id' => $this->_id))) {
+            self::cache_remove($this);
             return;
         }
 
         $this->delete_content();
-        $DB->delete_records('context', array('id'=>$this->_id));
-        // purge static context cache if entry present
-        context::cache_remove($this);
+        $DB->delete_records('context', array('id' => $this->_id));
+        // Purge static context cache if entry present.
+        self::cache_remove($this);
 
         // Inform search engine to delete data related to this context.
         \core_search\manager::context_deleted($this);
     }
 
-    // ====== context level related methods ======
+    /* ====== context level related methods ====== */
 
     /**
      * Utility method for context creation
      *
-     * @static
      * @param int $contextlevel
      * @param int $instanceid
      * @param string $parentpath
@@ -677,12 +668,12 @@ abstract class context extends stdClass implements IteratorAggregate {
         $record->contextlevel = $contextlevel;
         $record->instanceid   = $instanceid;
         $record->depth        = 0;
-        $record->path         = null; //not known before insert
+        $record->path         = null; // Not known before insert.
         $record->locked       = 0;
 
         $record->id = $DB->insert_record('context', $record);
 
-        // now add path if known - it can be added later
+        // Now add path if known - it can be added later.
         if (!is_null($parentpath)) {
             $record->path = $parentpath.'/'.$record->id;
             $record->depth = substr_count($record->path, '/');
@@ -704,7 +695,7 @@ abstract class context extends stdClass implements IteratorAggregate {
      * @return string the human readable context name.
      */
     public function get_context_name($withprefix = true, $short = false, $escape = true) {
-        // must be implemented in all context levels
+        // Must be implemented in all context levels.
         throw new coding_exception('can not get name of abstract context');
     }
 
@@ -730,7 +721,7 @@ abstract class context extends stdClass implements IteratorAggregate {
      *
      * @return moodle_url
      */
-    public abstract function get_url();
+    abstract public function get_url();
 
     /**
      * Returns context instance database name.
@@ -781,7 +772,7 @@ abstract class context extends stdClass implements IteratorAggregate {
      * @param string $sort SQL order by snippet for sorting returned capabilities sensibly for display
      * @return array
      */
-    public abstract function get_capabilities(string $sort = self::DEFAULT_CAPABILITY_SORT);
+    abstract public function get_capabilities(string $sort = self::DEFAULT_CAPABILITY_SORT);
 
     /**
      * Recursive function which, given a context, find all its children context ids.
@@ -814,7 +805,7 @@ abstract class context extends stdClass implements IteratorAggregate {
 
         $result = array();
         foreach ($records as $record) {
-            $result[$record->id] = context::create_instance_from_record($record);
+            $result[$record->id] = self::create_instance_from_record($record);
         }
 
         return $result;
@@ -861,7 +852,7 @@ abstract class context extends stdClass implements IteratorAggregate {
 
         $result = array();
         foreach ($contextids as $contextid) {
-            $parent = context::instance_by_id($contextid, MUST_EXIST);
+            $parent = self::instance_by_id($contextid, MUST_EXIST);
             $result[$parent->id] = $parent;
         }
 
@@ -904,10 +895,10 @@ abstract class context extends stdClass implements IteratorAggregate {
             return array();
         }
 
-        $parentcontexts = trim($this->_path, '/'); // kill leading slash
+        $parentcontexts = trim($this->_path, '/'); // Kill leading slash.
         $parentcontexts = explode('/', $parentcontexts);
         if (!$includeself) {
-            array_pop($parentcontexts); // and remove its own id
+            array_pop($parentcontexts); // And remove its own id.
         }
 
         return array_reverse($parentcontexts);
@@ -952,12 +943,12 @@ abstract class context extends stdClass implements IteratorAggregate {
             return false;
         }
 
-        $parentcontexts = trim($this->_path, '/'); // kill leading slash
+        $parentcontexts = trim($this->_path, '/'); // Kill leading slash.
         $parentcontexts = explode('/', $parentcontexts);
-        array_pop($parentcontexts); // self
-        $contextid = array_pop($parentcontexts); // immediate parent
+        array_pop($parentcontexts); // Self.
+        $contextid = array_pop($parentcontexts); // Immediate parent.
 
-        return context::instance_by_id($contextid, MUST_EXIST);
+        return self::instance_by_id($contextid, MUST_EXIST);
     }
 
     /**
@@ -977,7 +968,6 @@ abstract class context extends stdClass implements IteratorAggregate {
     /**
      * Returns sql necessary for purging of stale context instances.
      *
-     * @static
      * @return string cleanup SQL
      */
     protected static function get_cleanup_sql() {
@@ -987,7 +977,6 @@ abstract class context extends stdClass implements IteratorAggregate {
     /**
      * Rebuild context paths and depths at context level.
      *
-     * @static
      * @param bool $force
      * @return void
      */
@@ -998,7 +987,6 @@ abstract class context extends stdClass implements IteratorAggregate {
     /**
      * Create missing context instances at given level
      *
-     * @static
      * @return void
      */
     protected static function create_level_instances() {
@@ -1012,10 +1000,10 @@ abstract class context extends stdClass implements IteratorAggregate {
     public function reload_if_dirty() {
         global $ACCESSLIB_PRIVATE, $USER;
 
-        // Load dirty contexts list if needed
+        // Load dirty contexts list if needed.
         if (CLI_SCRIPT) {
             if (!isset($ACCESSLIB_PRIVATE->dirtycontexts)) {
-                // we do not load dirty flags in CLI and cron
+                // We do not load dirty flags in CLI and cron.
                 $ACCESSLIB_PRIVATE->dirtycontexts = array();
             }
         } else {
@@ -1068,9 +1056,9 @@ abstract class context extends stdClass implements IteratorAggregate {
             return;
         }
 
-        // only if it is a non-empty string
+        // Only if it is a non-empty string.
         if (is_string($this->_path) && $this->_path !== '') {
-            set_cache_flag('accesslib/dirtycontexts', $this->_path, 1, time()+$CFG->sessiontimeout);
+            set_cache_flag('accesslib/dirtycontexts', $this->_path, 1, time() + $CFG->sessiontimeout);
             if (isset($ACCESSLIB_PRIVATE->dirtycontexts)) {
                 $ACCESSLIB_PRIVATE->dirtycontexts[$this->_path] = 1;
             } else {
@@ -1078,11 +1066,11 @@ abstract class context extends stdClass implements IteratorAggregate {
                     $ACCESSLIB_PRIVATE->dirtycontexts = array($this->_path => 1);
                 } else {
                     if (isset($USER->access['time'])) {
-                        $ACCESSLIB_PRIVATE->dirtycontexts = get_cache_flags('accesslib/dirtycontexts', $USER->access['time']-2);
+                        $ACCESSLIB_PRIVATE->dirtycontexts = get_cache_flags('accesslib/dirtycontexts', $USER->access['time'] - 2);
                     } else {
                         $ACCESSLIB_PRIVATE->dirtycontexts = array($this->_path => 1);
                     }
-                    // flags not loaded yet, it will be done later in $context->reload_if_dirty()
+                    // Flags not loaded yet, it will be done later in $context->reload_if_dirty().
                 }
             }
         }

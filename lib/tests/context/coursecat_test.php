@@ -27,9 +27,12 @@ use core\context, core\context_helper;
  * @author    Petr Skoda
  * @copyright 2022 Open LMS
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers    \core\context\coursecat
+ * @coversDefaultClass \core\context\coursecat
  */
 class coursecat_test extends \advanced_testcase {
+    /**
+     * @coversNothing
+     */
     public function test_legacy_classname() {
         $category = \core_course_category::get_default();
         $context = \context_coursecat::instance($category->id);
@@ -37,6 +40,10 @@ class coursecat_test extends \advanced_testcase {
         $this->assertInstanceOf(\context_coursecat::class, $context);
     }
 
+    /**
+     * @covers ::instance
+     * @covers \core\context::instance_by_id
+     */
     public function test_factory_methods() {
         $category = \core_course_category::get_default();
         $context = coursecat::instance($category->id);
@@ -48,15 +55,24 @@ class coursecat_test extends \advanced_testcase {
         $this->assertSame($category->id, $context->instanceid);
     }
 
+    /**
+     * @coversNothing
+     */
     public function test_level() {
         $this->assertSame(40, coursecat::LEVEL);
         $this->assertSame(CONTEXT_COURSECAT, coursecat::LEVEL);
     }
 
+    /**
+     * @covers ::get_level_name
+     */
     public function test_get_level_name() {
         $this->assertSame('Category', coursecat::get_level_name());
     }
 
+    /**
+     * @covers ::get_context_name
+     */
     public function test_get_context_name() {
         $category = \core_course_category::get_default();
         $context = coursecat::instance($category->id);
@@ -67,6 +83,9 @@ class coursecat_test extends \advanced_testcase {
         $this->assertSame('Category: Category 1', $context->get_context_name(true, true, false));
     }
 
+    /**
+     * @covers ::get_url
+     */
     public function test_get_url() {
         $category = \core_course_category::get_default();
         $context = coursecat::instance($category->id);
@@ -77,8 +96,9 @@ class coursecat_test extends \advanced_testcase {
     }
 
     /**
-     * @covers \core\context\coursecat::get_instance_table()
-     * @covers \core\context\coursecat::get_behat_reference_columns()
+     * @covers ::get_instance_table()
+     * @covers ::get_behat_reference_columns()
+     * @covers \core\context_helper::resolve_behat_reference
      */
     public function test_resolve_behat_reference() {
         $this->resetAfterTest();
@@ -102,6 +122,9 @@ class coursecat_test extends \advanced_testcase {
         $this->assertNull($result);
     }
 
+    /**
+     * @covers ::get_compatible_role_archetypes
+     */
     public function test_get_compatible_role_archetypes() {
         global $DB;
 
@@ -116,10 +139,16 @@ class coursecat_test extends \advanced_testcase {
         }
     }
 
+    /**
+     * @covers ::get_possible_parent_levels
+     */
     public function test_get_possible_parent_levels() {
         $this->assertSame([system::LEVEL, coursecat::LEVEL], coursecat::get_possible_parent_levels());
     }
 
+    /**
+     * @covers ::get_capabilities
+     */
     public function test_get_capabilities() {
         $category = \core_course_category::get_default();
 
@@ -132,6 +161,9 @@ class coursecat_test extends \advanced_testcase {
         $this->assertNotContains('moodle/user:viewalldetails', $capabilities);
     }
 
+    /**
+     * @covers ::create_level_instances
+     */
     public function test_create_level_instances() {
         global $DB;
         $this->resetAfterTest();
@@ -144,6 +176,9 @@ class coursecat_test extends \advanced_testcase {
         $record = $DB->get_record('context', ['contextlevel' => coursecat::LEVEL, 'instanceid' => $coursecat->id], '*', MUST_EXIST);
     }
 
+    /**
+     * @covers ::get_child_contexts
+     */
     public function test_get_child_contexts() {
         $this->resetAfterTest();
 
@@ -160,6 +195,9 @@ class coursecat_test extends \advanced_testcase {
         $this->assertCount(1, $children);
     }
 
+    /**
+     * @covers ::get_cleanup_sql
+     */
     public function test_get_cleanup_sql() {
         global $DB;
         $this->resetAfterTest();
@@ -173,6 +211,9 @@ class coursecat_test extends \advanced_testcase {
         $this->assertFalse($DB->record_exists('context', ['contextlevel' => coursecat::LEVEL, 'instanceid' => $coursecat->id]));
     }
 
+    /**
+     * @covers ::build_paths
+     */
     public function test_build_paths() {
         global $DB;
         $this->resetAfterTest();
@@ -191,6 +232,9 @@ class coursecat_test extends \advanced_testcase {
         $this->assertSame('/' . $syscontext->id . '/' . $record->id, $record->path);
     }
 
+    /**
+     * @covers ::set_locked
+     */
     public function test_set_locked() {
         global $DB;
         $this->resetAfterTest();

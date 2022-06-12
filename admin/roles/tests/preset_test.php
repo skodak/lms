@@ -77,6 +77,9 @@ class preset_test extends \advanced_testcase {
         }
     }
 
+    /**
+     * @covers \core_role_preset::parse_preset
+     */
     public function test_mixed_levels() {
         // The problem here is that we cannot guarantee plugin contexts
         // have unique short names, so we have to also support level numbers.

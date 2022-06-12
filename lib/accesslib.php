@@ -4881,7 +4881,7 @@ function role_change_permission($roleid, $context, $capname, $permission) {
     assign_capability($capname, $permission, $roleid, $context->id, true);
 }
 
-// ============== DEPRECATED FUNCTIONS ==========================================
+/* ============== DEPRECATED FUNCTIONS ========================================== */
 // Old context related functions were deprecated in 2.0, it is recommended
 // to use context classes in new code. Old function can be used when
 // creating patches that are supposed to be backported to older stable branches.

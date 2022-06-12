@@ -67,8 +67,8 @@ class coursecat extends context {
         global $DB;
 
         $name = '';
-        if ($category = $DB->get_record('course_categories', array('id'=>$this->_instanceid))) {
-            if ($withprefix){
+        if ($category = $DB->get_record('course_categories', array('id' => $this->_instanceid))) {
+            if ($withprefix) {
                 $name = get_string('category').': ';
             }
             if (!$escape) {
@@ -126,7 +126,7 @@ class coursecat extends context {
      * @return int[]
      */
     public static function get_possible_parent_levels(): array {
-        return [system::LEVEL, coursecat::LEVEL];
+        return [system::LEVEL, self::LEVEL];
     }
 
     /**
@@ -161,7 +161,7 @@ class coursecat extends context {
         if (!$record = $DB->get_record('context', array('contextlevel' => self::LEVEL, 'instanceid' => $categoryid))) {
             if ($category = $DB->get_record('course_categories', array('id' => $categoryid), 'id,parent', $strictness)) {
                 if ($category->parent) {
-                    $parentcontext = coursecat::instance($category->parent);
+                    $parentcontext = self::instance($category->parent);
                     $record = context::insert_context_record(self::LEVEL, $category->id, $parentcontext->path);
                 } else {
                     $record = context::insert_context_record(self::LEVEL, $category->id, '/'.SYSCONTEXTID, 0);
@@ -195,7 +195,7 @@ class coursecat extends context {
         $sql = "SELECT ctx.*
                   FROM {context} ctx
                  WHERE ctx.path LIKE ? AND (ctx.depth = ? OR ctx.contextlevel = ?)";
-        $params = array($this->_path.'/%', $this->depth+1, self::LEVEL);
+        $params = array($this->_path.'/%', $this->depth + 1, self::LEVEL);
         $records = $DB->get_records_sql($sql, $params);
 
         $result = array();
@@ -258,7 +258,7 @@ class coursecat extends context {
 
             $base = '/'.SYSCONTEXTID;
 
-            // Normal top level categories
+            // Normal top level categories.
             $sql = "UPDATE {context}
                        SET depth=2,
                            path=".$DB->sql_concat("'$base/'", 'id')."
@@ -269,9 +269,9 @@ class coursecat extends context {
                            $emptyclause";
             $DB->execute($sql);
 
-            // Deeper categories - one query per depthlevel
+            // Deeper categories - one query per depthlevel.
             $maxdepth = $DB->get_field_sql("SELECT MAX(depth) FROM {course_categories}");
-            for ($n=2; $n<=$maxdepth; $n++) {
+            for ($n = 2; $n <= $maxdepth; $n++) {
                 $sql = "INSERT INTO {context_temp} (id, path, depth, locked)
                         SELECT ctx.id, ".$DB->sql_concat('pctx.path', "'/'", 'ctx.id').", pctx.depth+1, ctx.locked
                           FROM {context} ctx

@@ -219,7 +219,6 @@ abstract class context_helper extends context {
     /**
      * Returns a class name of the context level class
      *
-     * @static
      * @param int $contextlevel (CONTEXT_SYSTEM, etc.)
      * @return string class name of the context class
      * @throws coding_exception if level does not exist
@@ -236,7 +235,6 @@ abstract class context_helper extends context {
     /**
      * Returns a list of all context levels
      *
-     * @static
      * @return array int=>string (level=>level class name)
      */
     public static function get_all_levels(): array {
@@ -313,7 +311,6 @@ abstract class context_helper extends context {
      * Remove stale contexts that belonged to deleted instances.
      * Ideally all code should cleanup contexts properly, unfortunately accidents happen...
      *
-     * @static
      * @return void
      */
     public static function cleanup_instances() {
@@ -328,7 +325,7 @@ abstract class context_helper extends context {
 
         $sql = implode(" UNION ", $sqls);
 
-        // it is probably better to use transactions, it might be faster too
+        // It is probably better to use transactions, it might be faster too.
         $transaction = $DB->start_delegated_transaction();
 
         $rs = $DB->get_recordset_sql($sql);
@@ -344,7 +341,6 @@ abstract class context_helper extends context {
     /**
      * Create all context instances at the given level and above.
      *
-     * @static
      * @param int $contextlevel null means all levels
      * @param bool $buildpaths
      * @return void
@@ -368,7 +364,6 @@ abstract class context_helper extends context {
     /**
      * Rebuild paths and depths in all context levels.
      *
-     * @static
      * @param bool $force false means add missing only
      * @return void
      */
@@ -379,13 +374,12 @@ abstract class context_helper extends context {
             $classname::build_paths($force);
         }
 
-        // reset static course cache - it might have incorrect cached data
+        // Reset static course cache - it might have incorrect cached data.
         accesslib_clear_all_caches(true);
     }
 
     /**
      * Resets the cache to remove all data.
-     * @static
      */
     public static function reset_caches() {
         context::reset_caches();
@@ -396,7 +390,6 @@ abstract class context_helper extends context {
      *
      * This helps with performance when dealing with hundreds of contexts.
      *
-     * @static
      * @param string $tablealias context table alias in the query
      * @return array (table.column=>alias, ...)
      */
@@ -416,7 +409,6 @@ abstract class context_helper extends context {
      *
      * This helps with performance when dealing with hundreds of contexts.
      *
-     * @static
      * @param string $tablealias context table alias in the query
      * @return string
      */
@@ -434,7 +426,6 @@ abstract class context_helper extends context {
      *
      * The db request has to contain all columns from context_helper::get_preload_record_columns().
      *
-     * @static
      * @param stdClass $rec
      * @return context|null
      */
@@ -475,11 +466,10 @@ abstract class context_helper extends context {
      *
      * To be used if you expect multiple queries for course activities...
      *
-     * @static
      * @param int $courseid
      */
     public static function preload_course($courseid) {
-        // Users can call this multiple times without doing any harm
+        // Users can call this multiple times without doing any harm.
         if (isset(context::$cache_preloaded[$courseid])) {
             return;
         }
@@ -492,7 +482,6 @@ abstract class context_helper extends context {
     /**
      * Delete context instance
      *
-     * @static
      * @param int $contextlevel
      * @param int $instanceid
      * @return void
@@ -500,19 +489,16 @@ abstract class context_helper extends context {
     public static function delete_instance($contextlevel, $instanceid) {
         global $DB;
 
-        // double check the context still exists
-        if ($record = $DB->get_record('context', array('contextlevel'=>$contextlevel, 'instanceid'=>$instanceid))) {
+        // Double check the context still exists.
+        if ($record = $DB->get_record('context', array('contextlevel' => $contextlevel, 'instanceid' => $instanceid))) {
             $context = context::create_instance_from_record($record);
             $context->delete();
-        } else {
-            // we should try to purge the cache anyway
         }
     }
 
     /**
      * Returns the name of specified context level
      *
-     * @static
      * @param int $contextlevel
      * @return string name of the context level
      */

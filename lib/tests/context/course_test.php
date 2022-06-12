@@ -27,9 +27,12 @@ use core\context, core\context_helper;
  * @author    Petr Skoda
  * @copyright 2022 Open LMS
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @covers    \core\context\course
+ * @coversDefaultClass \core\context\course
  */
 class course_test extends \advanced_testcase {
+    /**
+     * @coversNothing
+     */
     public function test_legacy_classname() {
         global $SITE;
         $course = $SITE;
@@ -38,6 +41,10 @@ class course_test extends \advanced_testcase {
         $this->assertInstanceOf(\context_course::class, $context);
     }
 
+    /**
+     * @covers ::instance
+     * @covers \core\context::instance_by_id
+     */
     public function test_factory_methods() {
         global $SITE;
         $course = $SITE;
@@ -50,15 +57,24 @@ class course_test extends \advanced_testcase {
         $this->assertSame($course->id, $context->instanceid);
     }
 
+    /**
+     * @coversNothing
+     */
     public function test_level() {
         $this->assertSame(50, course::LEVEL);
         $this->assertSame(CONTEXT_COURSE, course::LEVEL);
     }
 
+    /**
+     * @covers ::get_level_name
+     */
     public function test_get_level_name() {
         $this->assertSame('Course', course::get_level_name());
     }
 
+    /**
+     * @covers ::get_context_name
+     */
     public function test_get_context_name() {
         $this->resetAfterTest();
 
@@ -72,6 +88,9 @@ class course_test extends \advanced_testcase {
         $this->assertSame('Course: TST', $context->get_context_name(true, true, false));
     }
 
+    /**
+     * @covers ::get_url
+     */
     public function test_get_url() {
         $this->resetAfterTest();
 
@@ -85,8 +104,9 @@ class course_test extends \advanced_testcase {
     }
 
     /**
-     * @covers \core\context\course::get_instance_table()
-     * @covers \core\context\course::get_behat_reference_columns()
+     * @covers ::get_instance_table()
+     * @covers ::get_behat_reference_columns()
+     * @covers \core\context_helper::resolve_behat_reference
      */
     public function test_resolve_behat_reference() {
         $this->resetAfterTest();
@@ -110,6 +130,9 @@ class course_test extends \advanced_testcase {
         $this->assertNull($result);
     }
 
+    /**
+     * @covers ::get_compatible_role_archetypes
+     */
     public function test_get_compatible_role_archetypes() {
         global $DB;
 
@@ -124,10 +147,16 @@ class course_test extends \advanced_testcase {
         }
     }
 
+    /**
+     * @covers ::get_possible_parent_levels
+     */
     public function test_get_possible_parent_levels() {
         $this->assertSame([coursecat::LEVEL], course::get_possible_parent_levels());
     }
 
+    /**
+     * @covers ::get_capabilities
+     */
     public function test_get_capabilities() {
         $this->resetAfterTest();
 
@@ -144,6 +173,9 @@ class course_test extends \advanced_testcase {
         $this->assertNotContains('moodle/user:viewalldetails', $capabilities);
     }
 
+    /**
+     * @covers ::create_level_instances
+     */
     public function test_create_level_instances() {
         global $DB;
         $this->resetAfterTest();
@@ -156,6 +188,9 @@ class course_test extends \advanced_testcase {
         $record = $DB->get_record('context', ['contextlevel' => course::LEVEL, 'instanceid' => $course->id], '*', MUST_EXIST);
     }
 
+    /**
+     * @covers ::get_child_contexts
+     */
     public function test_get_child_contexts() {
         $this->resetAfterTest();
 
@@ -170,6 +205,9 @@ class course_test extends \advanced_testcase {
         $this->assertEquals($page->cmid, $childcontext->instanceid);
     }
 
+    /**
+     * @covers ::get_cleanup_sql
+     */
     public function test_get_cleanup_sql() {
         global $DB;
         $this->resetAfterTest();
@@ -183,6 +221,9 @@ class course_test extends \advanced_testcase {
         $this->assertFalse($DB->record_exists('context', ['contextlevel' => course::LEVEL, 'instanceid' => $course->id]));
     }
 
+    /**
+     * @covers ::build_paths
+     */
     public function test_build_paths() {
         global $DB;
         $this->resetAfterTest();
@@ -202,6 +243,9 @@ class course_test extends \advanced_testcase {
         $this->assertSame('/' . $syscontext->id . '/' . $categorycontext->id . '/' . $record->id, $record->path);
     }
 
+    /**
+     * @covers ::set_locked
+     */
     public function test_set_locked() {
         global $DB;
         $this->resetAfterTest();

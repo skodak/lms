@@ -70,11 +70,11 @@ class course extends context {
         if ($this->_instanceid == SITEID) {
             $name = get_string('frontpage', 'admin');
         } else {
-            if ($course = $DB->get_record('course', array('id'=>$this->_instanceid))) {
-                if ($withprefix){
+            if ($course = $DB->get_record('course', array('id' => $this->_instanceid))) {
+                if ($withprefix) {
                     $name = get_string('course').': ';
                 }
-                if ($short){
+                if ($short) {
                     if (!$escape) {
                         $name .= format_string($course->shortname, true, array('context' => $this, 'escape' => false));
                     } else {
@@ -100,7 +100,7 @@ class course extends context {
      */
     public function get_url() {
         if ($this->_instanceid != SITEID) {
-            return new moodle_url('/course/view.php', array('id'=>$this->_instanceid));
+            return new moodle_url('/course/view.php', array('id' => $this->_instanceid));
         }
 
         return new moodle_url('/');
@@ -257,7 +257,7 @@ class course extends context {
 
             $base = '/'.SYSCONTEXTID;
 
-            // Standard frontpage
+            // Standard frontpage.
             $sql = "UPDATE {context}
                        SET depth = 2,
                            path = ".$DB->sql_concat("'$base/'", 'id')."
@@ -268,7 +268,7 @@ class course extends context {
                            $emptyclause";
             $DB->execute($sql);
 
-            // standard courses
+            // Standard courses.
             $sql = "INSERT INTO {context_temp} (id, path, depth, locked)
                     SELECT ctx.id, ".$DB->sql_concat('pctx.path', "'/'", 'ctx.id').", pctx.depth+1, ctx.locked
                       FROM {context} ctx

@@ -67,13 +67,13 @@ class block extends context {
         global $DB, $CFG;
 
         $name = '';
-        if ($blockinstance = $DB->get_record('block_instances', array('id'=>$this->_instanceid))) {
+        if ($blockinstance = $DB->get_record('block_instances', array('id' => $this->_instanceid))) {
             global $CFG;
             require_once("$CFG->dirroot/blocks/moodleblock.class.php");
             require_once("$CFG->dirroot/blocks/$blockinstance->blockname/block_$blockinstance->blockname.php");
             $blockname = "block_$blockinstance->blockname";
             if ($blockobject = new $blockname()) {
-                if ($withprefix){
+                if ($withprefix) {
                     $name = get_string('block').': ';
                 }
                 $name .= $blockobject->title;
@@ -238,7 +238,7 @@ class block extends context {
                 $ctxemptyclause = "AND (ctx.path IS NULL OR ctx.depth = 0)";
             }
 
-            // pctx.path IS NOT NULL prevents fatal problems with broken block instances that point to invalid context parent
+            // The pctx.path IS NOT NULL prevents fatal problems with broken block instances that point to invalid context parent.
             $sql = "INSERT INTO {context_temp} (id, path, depth, locked)
                     SELECT ctx.id, ".$DB->sql_concat('pctx.path', "'/'", 'ctx.id').", pctx.depth+1, ctx.locked
                       FROM {context} ctx
