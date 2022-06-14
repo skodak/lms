@@ -852,7 +852,8 @@ abstract class context extends stdClass implements IteratorAggregate {
 
         $result = array();
         foreach ($contextids as $contextid) {
-            $parent = self::instance_by_id($contextid, MUST_EXIST);
+            // Do NOT change this to self!
+            $parent = context_helper::instance_by_id($contextid, MUST_EXIST);
             $result[$parent->id] = $parent;
         }
 
@@ -948,7 +949,8 @@ abstract class context extends stdClass implements IteratorAggregate {
         array_pop($parentcontexts); // Self.
         $contextid = array_pop($parentcontexts); // Immediate parent.
 
-        return self::instance_by_id($contextid, MUST_EXIST);
+        // Do NOT change this to self!
+        return context_helper::instance_by_id($contextid, MUST_EXIST);
     }
 
     /**
