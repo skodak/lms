@@ -18,7 +18,6 @@ namespace core;
 
 use stdClass, IteratorAggregate, ArrayIterator;
 use coding_exception, moodle_url;
-use core\context\system;
 
 /**
  * Basic moodle context abstraction class.
@@ -41,6 +40,7 @@ use core\context\system;
  * @property-read int $instanceid id of related instance in each context
  * @property-read string $path path to context, starts with system context
  * @property-read int $depth
+ * @property-read bool $locked true means write capabilities are ignored in this context or parents
  */
 abstract class context extends stdClass implements IteratorAggregate {
 
@@ -114,7 +114,7 @@ abstract class context extends stdClass implements IteratorAggregate {
     protected static $cache_preloaded  = array();
 
     /**
-     * @var system The system context once initialised
+     * @var context\system The system context once initialised
      */
     protected static $systemcontext    = null;
 
@@ -463,7 +463,7 @@ abstract class context extends stdClass implements IteratorAggregate {
         }
 
         if ($id == SYSCONTEXTID) {
-            return system::instance(0, $strictness);
+            return context\system::instance(0, $strictness);
         }
 
         if (is_array($id) or is_object($id) or empty($id)) {
@@ -731,6 +731,49 @@ abstract class context extends stdClass implements IteratorAggregate {
      * @return moodle_url
      */
     public abstract function get_url();
+
+    /**
+     * Returns context instance database name.
+     *
+     * @return string|null table name for all levels except system.
+     */
+    protected static function get_instance_table(): ?string {
+        return null;
+    }
+
+    /**
+     * Returns list of columns that can be used from behat
+     * to look up context by reference.
+     *
+     * @return array list of column names from instance table
+     */
+    protected static function get_behat_reference_columns(): array {
+        return [];
+    }
+
+    /**
+     * Returns list of all role archetypes that are compatible
+     * with role assignments in context level.
+     * @since Moodle 4.1
+     *
+     * @return string[]
+     */
+    protected static function get_compatible_role_archetypes(): array {
+        // Override if archetype roles should be allowed to be assigned in context level.
+        return [];
+    }
+
+    /**
+     * Returns list of all possible parent context levels,
+     * it may include itself if nesting is allowed.
+     * @since Moodle 4.1
+     *
+     * @return int[]
+     */
+    public static function get_possible_parent_levels(): array {
+        // Override if other type of parents are expected.
+        return [context\system::LEVEL];
+    }
 
     /**
      * Returns array of relevant context capability records.

@@ -290,6 +290,15 @@ $definitions = array(
         'simpledata' => true,
     ),
 
+    // Cache of list of all context level.
+    'contextlevels' => array(
+        'mode' => cache_store::MODE_APPLICATION,
+        'simplekeys' => true,
+        'simpledata' => true,
+        'staticacceleration' => false,
+        'canuselocalstore' => true
+    ),
+
     // Cache system-wide role definitions.
     'roledefs' => array(
         'mode' => cache_store::MODE_APPLICATION,

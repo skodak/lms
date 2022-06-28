@@ -30,22 +30,24 @@ use coding_exception, moodle_url;
  * @since     Moodle 4.1
  */
 class system extends context {
+    /** @var int numeric context level value matching legacy CONTEXT_SYSTEM */
+    public const LEVEL = 10;
+
     /**
-     * Please use context_system::instance() if you need the instance of context.
+     * Please use \core\context\system::instance() if you need the instance of context.
      *
      * @param stdClass $record
      */
     protected function __construct(stdClass $record) {
         parent::__construct($record);
-        if ($record->contextlevel != CONTEXT_SYSTEM) {
-            throw new coding_exception('Invalid $record->contextlevel in context_system constructor.');
+        if ($record->contextlevel != self::LEVEL) {
+            throw new coding_exception('Invalid $record->contextlevel in core\context\system constructor.');
         }
     }
 
     /**
      * Returns human readable context level name.
      *
-     * @static
      * @return string the human readable context level name.
      */
     public static function get_level_name() {
@@ -74,6 +76,27 @@ class system extends context {
     }
 
     /**
+     * Returns list of all role archetypes that are compatible
+     * with role assignments in context level.
+     * @since Moodle 4.1
+     *
+     * @return int[]
+     */
+    protected static function get_compatible_role_archetypes(): array {
+        return ['manager', 'coursecreator'];
+    }
+
+    /**
+     * Returns list of all possible parent context levels.
+     * @since Moodle 4.1
+     *
+     * @return int[]
+     */
+    public static function get_possible_parent_levels(): array {
+        return [];
+    }
+
+    /**
      * Returns array of relevant context capability records.
      *
      * @param string $sort
@@ -87,7 +110,6 @@ class system extends context {
 
     /**
      * Create missing context instances at system context
-     * @static
      */
     protected static function create_level_instances() {
         // nothing to do here, the system context is created automatically in installer
@@ -97,7 +119,6 @@ class system extends context {
     /**
      * Returns system context instance.
      *
-     * @static
      * @param int $instanceid should be 0
      * @param int $strictness
      * @param bool $cache
@@ -115,7 +136,7 @@ class system extends context {
             if (!isset(context::$systemcontext)) {
                 $record = new stdClass();
                 $record->id           = SYSCONTEXTID;
-                $record->contextlevel = CONTEXT_SYSTEM;
+                $record->contextlevel = self::LEVEL;
                 $record->instanceid   = 0;
                 $record->path         = '/'.SYSCONTEXTID;
                 $record->depth        = 1;
@@ -127,7 +148,7 @@ class system extends context {
 
         try {
             // We ignore the strictness completely because system context must exist except during install.
-            $record = $DB->get_record('context', array('contextlevel'=>CONTEXT_SYSTEM), '*', MUST_EXIST);
+            $record = $DB->get_record('context', array('contextlevel' => self::LEVEL), '*', MUST_EXIST);
         } catch (\dml_exception $e) {
             //table or record does not exist
             if (!during_initial_install()) {
@@ -139,7 +160,7 @@ class system extends context {
 
         if (!$record) {
             $record = new stdClass();
-            $record->contextlevel = CONTEXT_SYSTEM;
+            $record->contextlevel = self::LEVEL;
             $record->instanceid   = 0;
             $record->depth        = 1;
             $record->path         = null; // Not known before insert.
@@ -200,11 +221,11 @@ class system extends context {
 
         debugging('Fetching of system context child courses is strongly discouraged on production servers (it may eat all available memory)!');
 
-        // Just get all the contexts except for CONTEXT_SYSTEM level
+        // Just get all the contexts except for system level
         // and hope we don't OOM in the process - don't cache
         $sql = "SELECT c.*
                   FROM {context} c
-                 WHERE contextlevel > ".CONTEXT_SYSTEM;
+                 WHERE contextlevel > " . self::LEVEL;
         $records = $DB->get_records_sql($sql);
 
         $result = array();
@@ -218,7 +239,6 @@ class system extends context {
     /**
      * Returns sql necessary for purging of stale context instances.
      *
-     * @static
      * @return string cleanup SQL
      */
     protected static function get_cleanup_sql() {
@@ -234,7 +254,6 @@ class system extends context {
     /**
      * Rebuild context paths and depths at system context level.
      *
-     * @static
      * @param bool $force
      */
     protected static function build_paths($force) {
@@ -243,7 +262,7 @@ class system extends context {
         /* note: ignore $force here, we always do full test of system context */
 
         // exactly one record must exist
-        $record = $DB->get_record('context', array('contextlevel'=>CONTEXT_SYSTEM), '*', MUST_EXIST);
+        $record = $DB->get_record('context', array('contextlevel' => self::LEVEL), '*', MUST_EXIST);
 
         if ($record->instanceid != 0) {
             debugging('Invalid system context detected');
@@ -268,8 +287,9 @@ class system extends context {
      * @return  $this
      */
     public function set_locked(bool $locked) {
-        throw new \coding_exception('It is not possible to lock the system context');
-
-        return $this;
+        if ($locked) {
+            throw new \coding_exception('It is not possible to lock the system context');
+        }
+        return parent::set_locked($locked);
     }
 }

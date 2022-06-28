@@ -3430,21 +3430,7 @@ function get_roles_for_contextlevels($contextlevel) {
  * @return array list of the context levels at which this type of role may be assigned by default.
  */
 function get_default_contextlevels($rolearchetype) {
-    static $defaults = array(
-        'manager'        => array(CONTEXT_SYSTEM, CONTEXT_COURSECAT, CONTEXT_COURSE),
-        'coursecreator'  => array(CONTEXT_SYSTEM, CONTEXT_COURSECAT),
-        'editingteacher' => array(CONTEXT_COURSE, CONTEXT_MODULE),
-        'teacher'        => array(CONTEXT_COURSE, CONTEXT_MODULE),
-        'student'        => array(CONTEXT_COURSE, CONTEXT_MODULE),
-        'guest'          => array(),
-        'user'           => array(),
-        'frontpage'      => array());
-
-    if (isset($defaults[$rolearchetype])) {
-        return $defaults[$rolearchetype];
-    } else {
-        return array();
-    }
+    return \context_helper::get_compatible_levels($rolearchetype);
 }
 
 /**

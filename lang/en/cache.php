@@ -84,6 +84,7 @@ $string['cachedef_questiondata'] = 'Question definitions';
 $string['cachedef_recommendation_favourite_course_content_items'] = 'Recommendation of course content items';
 $string['cachedef_reportbuilder_allowed_reports'] = 'Users allowed reports according to audience';
 $string['cachedef_repositories'] = 'Repositories instances data';
+$string['cachedef_contextlevels'] = 'Context level definitions';
 $string['cachedef_roledefs'] = 'Role definitions';
 $string['cachedef_grade_categories'] = 'Grade category queries';
 $string['cachedef_grade_letters'] = 'Grade letter queries';

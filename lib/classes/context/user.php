@@ -30,23 +30,25 @@ use coding_exception, moodle_url;
  * @since     Moodle 4.1
  */
 class user extends context {
+    /** @var int numeric context level value matching legacy CONTEXT_USER */
+    public const LEVEL = 30;
+
     /**
-     * Please use context_user::instance($userid) if you need the instance of context.
-     * Alternatively if you know only the context id use context::instance_by_id($contextid)
+     * Please use \core\context\user::instance($userid) if you need the instance of context.
+     * Alternatively if you know only the context id use \core\context::instance_by_id($contextid)
      *
      * @param stdClass $record
      */
     protected function __construct(stdClass $record) {
         parent::__construct($record);
-        if ($record->contextlevel != CONTEXT_USER) {
-            throw new coding_exception('Invalid $record->contextlevel in context_user constructor.');
+        if ($record->contextlevel != self::LEVEL) {
+            throw new coding_exception('Invalid $record->contextlevel in core\context\user constructor.');
         }
     }
 
     /**
      * Returns human readable context level name.
      *
-     * @static
      * @return string the human readable context level name.
      */
     public static function get_level_name() {
@@ -91,6 +93,35 @@ class user extends context {
     }
 
     /**
+     * Returns list of all possible parent context levels.
+     * @since Moodle 4.1
+     *
+     * @return int[]
+     */
+    public static function get_possible_parent_levels(): array {
+        return [system::LEVEL];
+    }
+
+    /**
+     * Returns context instance database name.
+     *
+     * @return string|null table name for all levels except system.
+     */
+    protected static function get_instance_table(): ?string {
+        return 'user';
+    }
+
+    /**
+     * Returns list of columns that can be used from behat
+     * to look up context by reference.
+     *
+     * @return array list of column names from instance table
+     */
+    protected static function get_behat_reference_columns(): array {
+        return ['username'];
+    }
+
+    /**
      * Returns array of relevant context capability records.
      *
      * @param string $sort
@@ -103,13 +134,12 @@ class user extends context {
         list($extra, $params) = $DB->get_in_or_equal($extracaps, SQL_PARAMS_NAMED, 'cap');
 
         return $DB->get_records_select('capabilities', "contextlevel = :level OR name {$extra}",
-            $params + ['level' => CONTEXT_USER], $sort);
+            $params + ['level' => self::LEVEL], $sort);
     }
 
     /**
      * Returns user context instance.
      *
-     * @static
      * @param int $userid id from {user} table
      * @param int $strictness
      * @return user|false context instance
@@ -117,13 +147,13 @@ class user extends context {
     public static function instance($userid, $strictness = MUST_EXIST) {
         global $DB;
 
-        if ($context = context::cache_get(CONTEXT_USER, $userid)) {
+        if ($context = context::cache_get(self::LEVEL, $userid)) {
             return $context;
         }
 
-        if (!$record = $DB->get_record('context', array('contextlevel' => CONTEXT_USER, 'instanceid' => $userid))) {
+        if (!$record = $DB->get_record('context', array('contextlevel' => self::LEVEL, 'instanceid' => $userid))) {
             if ($user = $DB->get_record('user', array('id' => $userid, 'deleted' => 0), 'id', $strictness)) {
-                $record = context::insert_context_record(CONTEXT_USER, $user->id, '/'.SYSCONTEXTID, 0);
+                $record = context::insert_context_record(self::LEVEL, $user->id, '/'.SYSCONTEXTID, 0);
             }
         }
 
@@ -138,20 +168,19 @@ class user extends context {
 
     /**
      * Create missing context instances at user context level
-     * @static
      */
     protected static function create_level_instances() {
         global $DB;
 
-        $sql = "SELECT ".CONTEXT_USER.", u.id
+        $sql = "SELECT " . self::LEVEL . ", u.id
                   FROM {user} u
                  WHERE u.deleted = 0
                        AND NOT EXISTS (SELECT 'x'
                                          FROM {context} cx
-                                        WHERE u.id = cx.instanceid AND cx.contextlevel=".CONTEXT_USER.")";
+                                        WHERE u.id = cx.instanceid AND cx.contextlevel=" . self::LEVEL . ")";
         $contextdata = $DB->get_recordset_sql($sql);
         foreach ($contextdata as $context) {
-            context::insert_context_record(CONTEXT_USER, $context->id, null);
+            context::insert_context_record(self::LEVEL, $context->id, null);
         }
         $contextdata->close();
     }
@@ -159,7 +188,6 @@ class user extends context {
     /**
      * Returns sql necessary for purging of stale context instances.
      *
-     * @static
      * @return string cleanup SQL
      */
     protected static function get_cleanup_sql() {
@@ -167,7 +195,7 @@ class user extends context {
                   SELECT c.*
                     FROM {context} c
          LEFT OUTER JOIN {user} u ON (c.instanceid = u.id AND u.deleted = 0)
-                   WHERE u.id IS NULL AND c.contextlevel = ".CONTEXT_USER."
+                   WHERE u.id IS NULL AND c.contextlevel = " . self::LEVEL . "
                ";
 
         return $sql;
@@ -176,7 +204,6 @@ class user extends context {
     /**
      * Rebuild context paths and depths at user context level.
      *
-     * @static
      * @param bool $force
      */
     protected static function build_paths($force) {
@@ -197,7 +224,7 @@ class user extends context {
         $sql = "UPDATE {context}
                    SET depth = 2,
                        path = {$path}
-                 WHERE contextlevel = " . CONTEXT_USER . "
+                 WHERE contextlevel = " . self::LEVEL . "
                    AND ($where)";
         $DB->execute($sql, $params);
     }

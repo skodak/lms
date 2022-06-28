@@ -18,8 +18,6 @@ namespace core;
 
 use stdClass;
 use coding_exception;
-use core\context\system;
-use core\context\course;
 
 /**
  * Context maintenance and helper methods.
@@ -36,62 +34,186 @@ use core\context\course;
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @since     Moodle 4.1
  */
-class context_helper extends context {
+abstract class context_helper extends context {
 
     /**
-     * @var array An array mapping context levels to classes
+     * @var array An array definitions of all context levels
      */
     private static $alllevels;
 
     /**
-     * Instance does not make sense here, only static use
-     */
-    protected function __construct() {
-    }
-
-    /**
-     * Reset internal context levels array.
-     */
-    public static function reset_levels() {
-        self::$alllevels = null;
-    }
-
-    /**
      * Initialise context levels, call before using self::$alllevels.
      */
-    private static function init_levels() {
+    private static function init_levels():void {
         global $CFG;
 
         if (isset(self::$alllevels)) {
             return;
         }
-        self::$alllevels = array(
-            CONTEXT_SYSTEM    => 'context_system',
-            CONTEXT_USER      => 'context_user',
-            CONTEXT_COURSECAT => 'context_coursecat',
-            CONTEXT_COURSE    => 'context_course',
-            CONTEXT_MODULE    => 'context_module',
-            CONTEXT_BLOCK     => 'context_block',
-        );
 
-        if (empty($CFG->custom_context_classes)) {
-            return;
+        $cache = \cache::make('core', 'contextlevels');
+        $definitions = $cache->get('definitions');
+        if ($definitions) {
+            self::$alllevels = $definitions;
         }
 
-        $levels = $CFG->custom_context_classes;
-        if (!is_array($levels)) {
-            $levels = @unserialize($levels);
-        }
-        if (!is_array($levels)) {
-            debugging('Invalid $CFG->custom_context_classes detected, value ignored.', DEBUG_DEVELOPER);
-            return;
+        $allfiles = ['core' => "$CFG->dirroot/lib/db/contexts.php"];
+        foreach (\core_component::get_plugin_types() as $type => $unuseddir) {
+            $files = \core_component::get_plugin_list_with_file($type, 'db/contexts.php', false);
+            foreach ($files as $plugin => $file) {
+                $allfiles[$type . '_' . $plugin] = $file;
+            }
         }
 
-        // Unsupported custom levels, use with care!!!
-        foreach ($levels as $level => $classname) {
-            self::$alllevels[$level] = $classname;
+        $getlevels = function(string $component, string $file): array {
+            $levels = null;
+            include($file);
+            if (!is_array($levels)) {
+                debugging("Ignoring invalid db/contexts.php file in component $component", DEBUG_DEVELOPER);
+                return [];
+            }
+            return $levels;
+        };
+
+        self::$alllevels = [];
+        foreach ($allfiles as $component => $file) {
+            $levels = $getlevels($component, $file);
+            foreach ($levels as $levelname) {
+                $classname = "$component\\context\\$levelname";
+                if (!class_exists($classname, true)) {
+                    debugging("Invalid context $levelname detected in component $component", DEBUG_DEVELOPER);
+                    continue;
+                }
+                $levelnumber = $classname::LEVEL;
+                if (isset(self::$alllevels[$levelnumber])) {
+                    // There should be some type of context level and name uniqueness
+                    // check in the plugins database.
+                    debugging("Duplicate context level number detected in component $component", DEBUG_MINIMAL);
+                    continue;
+                }
+                if ($classname !== context\system::class && $levelnumber <= context\system::LEVEL) {
+                    debugging("Invalid context $levelnumber detected in component $component", DEBUG_DEVELOPER);
+                    continue;
+                }
+                self::$alllevels[$levelnumber] = [
+                    'shortname' => $levelname, // Short name, is not guaranteed to be unique, but ideally it should.
+                    'component' => $component,
+                    'classname' => $classname,
+                ];
+            }
         }
-        ksort(self::$alllevels);
+        ksort(self::$alllevels, SORT_NUMERIC);
+        // Block must be always last because they can be added as child of any other context,
+        // we need to build the paths as the last step. This allows devs to add plugin blocks
+        // with number higher than 80.
+        $blocklevel = self::$alllevels[context\block::LEVEL];
+        unset(self::$alllevels[context\block::LEVEL]);
+        self::$alllevels[context\block::LEVEL] = $blocklevel;
+
+        $cache->set('definitions', self::$alllevels);
+
+        if (!empty($CFG->custom_context_classes)) {
+            debugging("Unsupported setting $CFG->custom_context_classes is not available any more,"
+                . "custom code needs to be converted to new plugin context levels", DEBUG_DEVELOPER);
+        }
+    }
+
+    /**
+     * Converts legacy context_* class name to new class name.
+     *
+     * NOTE: this is needed for external API which uses short context names.
+     * @since Moodle 4.1
+     *
+     * @param int|string $extlevel
+     * @return string|null context class name or null if not found
+     */
+    public static function parse_external_level($extlevel): ?string {
+        self::init_levels();
+        if (is_number($extlevel)) {
+            if (isset(self::$alllevels[$extlevel])) {
+                return self::$alllevels[$extlevel]['classname'];
+            } else {
+                return null;
+            }
+        }
+        if ($extlevel && is_string($extlevel)) {
+            $found = null;
+            foreach (self::$alllevels as $definition) {
+                if ($definition['shortname'] === $extlevel) {
+                    if ($found) {
+                        debugging("Duplicate short context level name found '$extlevel', use numeric value instead", DEBUG_DEVELOPER);
+                    } else {
+                        $found = $definition['classname'];
+                    }
+                }
+            }
+            return $found;
+        }
+        return null;
+    }
+
+    /**
+     * Resolve reference to context used in behat feature files.
+     *
+     * @param string $level
+     * @param string $reference
+     * @return context|null
+     */
+    public static function resolve_behat_reference(string $level, string $reference): ?context {
+        global $DB;
+
+        if (!PHPUNIT_TEST && !defined('BEHAT_SITE_RUNNING')) {
+            throw new coding_exception('resolve_behat_reference() cannot be used outside of tests');
+        }
+        self::init_levels();
+
+        $classname = null;
+        if (is_number($level)) {
+            if (isset(self::$alllevels[$level])) {
+                $classname = self::$alllevels[$level]['classname'];
+            }
+        } else {
+            foreach (self::$alllevels as $definition) {
+                if ($level === $definition['classname']::get_level_name()) {
+                    $classname = $definition['classname'];
+                    break;
+                }
+                if ($level === $definition['shortname']) {
+                    $classname = $definition['classname'];
+                    break;
+                }
+            }
+        }
+        if (!$classname) {
+            return null;
+        }
+
+        if ($classname::LEVEL === context\system::LEVEL) {
+            return context\system::instance();
+        }
+
+        if (trim($reference) === '') {
+            return null;
+        }
+
+        $table = $classname::get_instance_table();
+        if (!$table) {
+            return null;
+        }
+
+        $columns = $classname::get_behat_reference_columns();
+        foreach ($columns as $column) {
+            $instance = $DB->get_record($table, [$column => $reference]);
+            if ($instance) {
+                $context = $classname::instance($instance->id, IGNORE_MISSING);
+                if ($context) {
+                    return $context;
+                }
+                return null;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -100,11 +222,12 @@ class context_helper extends context {
      * @static
      * @param int $contextlevel (CONTEXT_SYSTEM, etc.)
      * @return string class name of the context class
+     * @throws coding_exception if level does not exist
      */
-    public static function get_class_for_level($contextlevel) {
+    public static function get_class_for_level(int $contextlevel): string {
         self::init_levels();
         if (isset(self::$alllevels[$contextlevel])) {
-            return self::$alllevels[$contextlevel];
+            return self::$alllevels[$contextlevel]['classname'];
         } else {
             throw new coding_exception('Invalid context level specified');
         }
@@ -116,9 +239,74 @@ class context_helper extends context {
      * @static
      * @return array int=>string (level=>level class name)
      */
-    public static function get_all_levels() {
+    public static function get_all_levels(): array {
         self::init_levels();
-        return self::$alllevels;
+        $result = [];
+        foreach (self::$alllevels as $contextlevel => $definition) {
+            $result[$contextlevel] = $definition['classname'];
+        }
+        return $result;
+    }
+
+    /**
+     * Get list of possible child levels for given level.
+     * @since Moodle 4.1
+     *
+     * @param int $parentlevel
+     * @return int[] list of context levels that my be children of given context level.
+     */
+    public static function get_child_levels(int $parentlevel): array {
+        self::init_levels();
+        $result = [];
+        $definitions = self::$alllevels;
+
+        $recursion = function(int $pl) use (&$result, $definitions, &$recursion): void {
+            foreach ($definitions as $contextlevel => $definition) {
+                $classname = $definition['classname'];
+                $parentlevels = $classname::get_possible_parent_levels();
+                if (in_array($pl, $parentlevels)) {
+                    if (isset($result[$contextlevel])) {
+                        continue;
+                    }
+                    $result[$contextlevel] = $contextlevel;
+                    $recursion($contextlevel);
+                }
+            }
+        };
+        $recursion($parentlevel);
+
+        $classname = self::get_class_for_level($parentlevel);
+        $parentlevels = $classname::get_possible_parent_levels();
+        if (!in_array($parentlevel, $parentlevels)) {
+            unset($result[$parentlevel]);
+        }
+
+        return array_values($result);
+    }
+
+    /**
+     * Returns context levels that compatible with role archetype assignments.
+     * @since Moodle 4.1
+     *
+     * @param string $archetype
+     * @return array
+     */
+    public static function get_compatible_levels(string $archetype): array {
+        self::init_levels();
+        $result = [];
+
+        foreach (self::$alllevels as $contextlevel => $definition) {
+            /** @var context $classname */
+            $classname = $definition['classname'];
+            $compatiblearchetypes = $classname::get_compatible_role_archetypes();
+            foreach ($compatiblearchetypes as $at) {
+                if ($at === $archetype) {
+                    $result[] = $contextlevel;
+                }
+            }
+        }
+
+        return $result;
     }
 
     /**
@@ -133,7 +321,8 @@ class context_helper extends context {
         self::init_levels();
 
         $sqls = array();
-        foreach (self::$alllevels as $level=>$classname) {
+        foreach (self::$alllevels as $definition) {
+            $classname = $definition['classname'];
             $sqls[] = $classname::get_cleanup_sql();
         }
 
@@ -162,9 +351,11 @@ class context_helper extends context {
      */
     public static function create_instances($contextlevel = null, $buildpaths = true) {
         self::init_levels();
-        foreach (self::$alllevels as $level=>$classname) {
-            if ($contextlevel and $level > $contextlevel) {
-                // skip potential sub-contexts
+        foreach (self::$alllevels as $level => $definition) {
+            $classname = $definition['classname'];
+            if ($contextlevel && $contextlevel != context\block::LEVEL && $level > $contextlevel) {
+                // Skip potential sub-contexts,
+                // in case of blocks build all contexts because plugin contexts may have higher levels.
                 continue;
             }
             $classname::create_level_instances();
@@ -183,7 +374,8 @@ class context_helper extends context {
      */
     public static function build_all_paths($force = false) {
         self::init_levels();
-        foreach (self::$alllevels as $classname) {
+        foreach (self::$alllevels as $definition) {
+            $classname = $definition['classname'];
             $classname::build_paths($force);
         }
 
@@ -244,10 +436,10 @@ class context_helper extends context {
      *
      * @static
      * @param stdClass $rec
-     * @return void (modifies $rec)
+     * @return context|null
      */
-    public static function preload_from_record(stdClass $rec) {
-        context::preload_from_record($rec);
+    public static function preload_from_record(stdClass $rec): ?context {
+        return context::preload_from_record($rec);
     }
 
     /**
@@ -255,7 +447,7 @@ class context_helper extends context {
      *
      * @param   array $contextids
      */
-    public static function preload_contexts_by_id(array $contextids) {
+    public static function preload_contexts_by_id(array $contextids): void {
         global $DB;
 
         // Determine which contexts are not already cached.
@@ -271,7 +463,7 @@ class context_helper extends context {
             // There is no point only fetching a single context as this would be no more efficient than calling the existing code.
             list($insql, $inparams) = $DB->get_in_or_equal($tofetch, SQL_PARAMS_NAMED);
             $ctxs = $DB->get_records_select('context', "id {$insql}", $inparams, '',
-                context_helper::get_preload_record_columns_sql('{context}'));
+                self::get_preload_record_columns_sql('{context}'));
             foreach ($ctxs as $ctx) {
                 self::preload_from_record($ctx);
             }
@@ -291,7 +483,7 @@ class context_helper extends context {
         if (isset(context::$cache_preloaded[$courseid])) {
             return;
         }
-        $coursecontext = course::instance($courseid);
+        $coursecontext = context\course::instance($courseid);
         $coursecontext->get_child_contexts();
 
         context::$cache_preloaded[$courseid] = true;
@@ -325,7 +517,7 @@ class context_helper extends context {
      * @return string name of the context level
      */
     public static function get_level_name($contextlevel) {
-        $classname = context_helper::get_class_for_level($contextlevel);
+        $classname = self::get_class_for_level($contextlevel);
         return $classname::get_level_name();
     }
 
@@ -338,23 +530,9 @@ class context_helper extends context {
     public static function get_navigation_filter_context(?context $context): ?context {
         global $CFG;
         if (!empty($CFG->filternavigationwithsystemcontext)) {
-            return system::instance();
+            return context\system::instance();
         } else {
             return $context;
         }
-    }
-
-    /**
-     * not used
-     */
-    public function get_url() {
-    }
-
-    /**
-     * not used
-     *
-     * @param string $sort
-     */
-    public function get_capabilities(string $sort = self::DEFAULT_CAPABILITY_SORT) {
     }
 }

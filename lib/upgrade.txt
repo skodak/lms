@@ -22,6 +22,11 @@ information provided here is intended especially for developers.
   attribute may encounter different behaviours between older Moodle versions (<v3.11.8, <v4.0.2) and the later ones. We recommend
   plugin developers to not use this attribute for Moodle versions 4.0 and below in order to avoid this problem.
 * Added $CFG->proxylogunsafe and proxyfixunsafe to detect code which doesn't honor the proxy config
+* All context classes were moved to \core\context namespace while keeping full backwards compatibility.
+  Please note it is not necessary to update plugins unless they rely on exact class names returned from
+  get_class() or context_helper.
+* Unsupported $CFG->custom_context_classes setting was removed, developers need to migrate their custom
+  context levels to new plugin context classes defined in plugin/db/contexts.php file.
 
 === 4.0 ===
 

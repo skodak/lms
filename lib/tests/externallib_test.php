@@ -352,6 +352,10 @@ class externallib_test extends \advanced_testcase {
         $fetchedcontext = test_exernal_api::get_context_wrapper(array("contextlevel" => "course", "instanceid" => $course->id));
         $this->assertEquals($realcontext, $fetchedcontext);
 
+        // Use context level numbers instead of legacy short level names.
+        $fetchedcontext = test_exernal_api::get_context_wrapper(array("contextlevel" => \core\context\course::LEVEL, "instanceid" => $course->id));
+        $this->assertEquals($realcontext, $fetchedcontext);
+
         // Passing empty values.
         try {
             $fetchedcontext = test_exernal_api::get_context_wrapper(array("contextid" => 0));
@@ -379,9 +383,23 @@ class externallib_test extends \advanced_testcase {
         $fetchedcontext = test_exernal_api::get_context_wrapper(array("contextlevel" => "system", "instanceid" => 0));
         $this->assertEquals($realcontext, $fetchedcontext);
 
-        // Passing wrong level.
-        $this->expectException('invalid_parameter_exception');
-        $fetchedcontext = test_exernal_api::get_context_wrapper(array("contextlevel" => "random", "instanceid" => $course->id));
+        // Passing wrong level name.
+        try {
+            test_exernal_api::get_context_wrapper(array("contextlevel" => "random", "instanceid" => $course->id));
+            $this->fail('exception expected when lave lname is invalid');
+        } catch (\moodle_exception $e) {
+            $this->assertInstanceOf('invalid_parameter_exception', $e);
+            $this->assertSame('Invalid parameter value detected (Invalid context level = random)', $e->getMessage());
+        }
+
+        // Passing wrong level number.
+        try {
+            test_exernal_api::get_context_wrapper(array("contextlevel" => -10, "instanceid" => $course->id));
+            $this->fail('exception expected when lave lname is invalid');
+        } catch (\moodle_exception $e) {
+            $this->assertInstanceOf('invalid_parameter_exception', $e);
+            $this->assertSame('Invalid parameter value detected (Invalid context level = -10)', $e->getMessage());
+        }
     }
 
     /*
