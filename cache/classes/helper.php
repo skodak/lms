@@ -158,19 +158,6 @@ class cache_helper {
     }
 
     /**
-     * Returns a cache_lock instance suitable for use with the store.
-     *
-     * @param cache_store $store
-     * @return cache_lock_interface
-     */
-    public static function get_cachelock_for_store(cache_store $store) {
-        $instance = cache_config::instance();
-        $lockconf = $instance->get_lock_for_store($store->my_name());
-        $factory = cache_factory::instance();
-        return $factory->create_lock_instance($lockconf);
-    }
-
-    /**
      * Returns an array of plugins without using core methods.
      *
      * This function explicitly does NOT use core functions as it will in some circumstances be called before Moodle has
@@ -383,7 +370,6 @@ class cache_helper {
                         'misses' => 0,
                         'sets' => 0,
                         'iobytes' => cache_store::IO_BYTES_NOT_SUPPORTED,
-                        'locks' => 0,
                     )
                 )
             );
@@ -394,7 +380,6 @@ class cache_helper {
                 'misses' => 0,
                 'sets' => 0,
                 'iobytes' => cache_store::IO_BYTES_NOT_SUPPORTED,
-                'locks' => 0,
             );
         }
     }

@@ -34,7 +34,6 @@
         "plagiarism": "plagiarism",
         "tool": "admin\/tool",
         "cachestore": "cache\/stores",
-        "cachelock": "cache\/locks",
         "fileconverter": "files\/converter",
         "contenttype": "contentbank\/contenttype",
         "theme": "theme",

@@ -200,26 +200,6 @@ class cache_disabled extends cache {
     public function purge() {
         return true;
     }
-
-    /**
-     * Pretend that we got a lock to avoid errors.
-     *
-     * @param string $key
-     * @return bool
-     */
-    public function acquire_lock(string $key) : bool {
-        return true;
-    }
-
-    /**
-     * Pretend that we released a lock to avoid errors.
-     *
-     * @param string $key
-     * @return void
-     */
-    public function release_lock(string $key) : bool {
-        return true;
-    }
 }
 
 /**
@@ -298,8 +278,7 @@ class cache_factory_disabled extends cache_factory {
                 $store->initialise($definition);
                 // We need to use a cache loader wrapper rather than directly returning the store,
                 // or it wouldn't have support for versioning. The cache_application class is used
-                // (rather than cache_request which might make more sense logically) because it
-                // includes support for locking, which might be necessary for some caches.
+                // for historic reasons (rather than cache_request which might make more sense logically).
                 $cache = new cache_application($definition, $store);
                 self::$tempcaches[$key] = $cache;
             }
@@ -441,7 +420,6 @@ class cache_config_disabled extends cache_config_writer {
         $configuration['modemappings'] = $this->configmodemappings;
         $configuration['definitions'] = $this->configdefinitions;
         $configuration['definitionmappings'] = $this->configdefinitionmappings;
-        $configuration['locks'] = $this->configlocks;
         return $configuration;
     }
 
@@ -552,14 +530,6 @@ class cache_config_disabled extends cache_config_writer {
                 'mode' => cache_store::MODE_REQUEST,
                 'store' => 'default_request',
                 'sort' => -1
-            )
-        );
-        $writer->configlocks = array(
-            'default_file_lock' => array(
-                'name' => 'cachelock_file_default',
-                'type' => 'cachelock_file',
-                'dir' => 'filelocks',
-                'default' => true
             )
         );
 

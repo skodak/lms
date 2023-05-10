@@ -96,36 +96,24 @@ class cache_config_writer extends cache_config {
             return;
         }
 
-        // We need to create a temporary cache lock instance for use here. Remember we are generating the config file
-        // it doesn't exist and thus we can't use the normal API for this (it'll just try to use config).
-        $lockconf = reset($this->configlocks);
-        if ($lockconf === false) {
-            debugging('Your cache configuration file is out of date and needs to be refreshed.', DEBUG_DEVELOPER);
-            // Use the default
-            $lockconf = array(
-                'name' => 'cachelock_file_default',
-                'type' => 'cachelock_file',
-                'dir' => 'filelocks',
-                'default' => true
-            );
+        while (true) {
+            $tempcachefile = $cachefile . '_' . uniqid('', true) . '.tmp';
+            if (!file_exists($tempcachefile)) {
+                break;
+            }
         }
-        $factory = cache_factory::instance();
-        $locking = $factory->create_lock_instance($lockconf);
-        if ($locking->lock('configwrite', 'config', true)) {
-            $tempcachefile = "{$cachefile}.tmp";
-            // Its safe to use w mode here because we have already acquired the lock.
-            $handle = fopen($tempcachefile, 'w');
-            fwrite($handle, $content);
-            fflush($handle);
-            fclose($handle);
-            $locking->unlock('configwrite', 'config');
-            @chmod($tempcachefile, $CFG->filepermissions);
-            rename($tempcachefile, $cachefile);
-            // Tell PHP to recompile the script.
-            core_component::invalidate_opcode_php_cache($cachefile);
-        } else {
-            throw new cache_exception('ex_configcannotsave', 'cache', '', null, 'Unable to open the cache config file.');
+
+        $handle = fopen($tempcachefile, 'w');
+        fwrite($handle, $content);
+        fflush($handle);
+        fclose($handle);
+        @chmod($tempcachefile, $CFG->filepermissions);
+        rename($tempcachefile, $cachefile);
+        if (file_exists($tempcachefile)) {
+            unlink($tempcachefile);
         }
+        // Tell PHP to recompile the script.
+        core_component::invalidate_opcode_php_cache($cachefile);
     }
 
     /**
@@ -139,7 +127,6 @@ class cache_config_writer extends cache_config {
         $configuration['modemappings'] = $this->configmodemappings;
         $configuration['definitions'] = $this->configdefinitions;
         $configuration['definitionmappings'] = $this->configdefinitionmappings;
-        $configuration['locks'] = $this->configlocks;
         return $configuration;
     }
 
@@ -190,76 +177,10 @@ class cache_config_writer extends cache_config {
             'class' => $class,
             'default' => false
         );
-        if (array_key_exists('lock', $configuration)) {
-            $this->configstores[$name]['lock'] = $configuration['lock'];
-            unset($this->configstores[$name]['configuration']['lock']);
-        }
         // Call instance_created()
         $store = new $class($name, $this->configstores[$name]['configuration']);
         $store->instance_created();
 
-        $this->config_save();
-        return true;
-    }
-
-    /**
-     * Adds a new lock instance to the config file.
-     *
-     * @param string $name The name the user gave the instance. PARAM_ALHPANUMEXT
-     * @param string $plugin The plugin we are creating an instance of.
-     * @param string $configuration Configuration data from the config instance.
-     * @throws cache_exception
-     */
-    public function add_lock_instance($name, $plugin, $configuration = array()) {
-        if (array_key_exists($name, $this->configlocks)) {
-            throw new cache_exception('Duplicate name specificed for cache lock instance. You must provide a unique name.');
-        }
-        $class = 'cachelock_'.$plugin;
-        if (!class_exists($class)) {
-            $plugins = core_component::get_plugin_list_with_file('cachelock', 'lib.php');
-            if (!array_key_exists($plugin, $plugins)) {
-                throw new cache_exception('Invalid lock name specified. The plugin does not exist or is not valid.');
-            }
-            $file = $plugins[$plugin];
-            if (file_exists($file)) {
-                require_once($file);
-            }
-            if (!class_exists($class)) {
-                throw new cache_exception('Invalid lock plugin specified. The plugin does not contain the required class.');
-            }
-        }
-        $reflection = new ReflectionClass($class);
-        if (!$reflection->implementsInterface('cache_lock_interface')) {
-            throw new cache_exception('Invalid lock plugin specified. The plugin does not implement the required interface.');
-        }
-        $this->configlocks[$name] = array_merge($configuration, array(
-            'name' => $name,
-            'type' => 'cachelock_'.$plugin,
-            'default' => false
-        ));
-        $this->config_save();
-    }
-
-    /**
-     * Deletes a lock instance given its name.
-     *
-     * @param string $name The name of the plugin, PARAM_ALPHANUMEXT.
-     * @return bool
-     * @throws cache_exception
-     */
-    public function delete_lock_instance($name) {
-        if (!array_key_exists($name, $this->configlocks)) {
-            throw new cache_exception('The requested store does not exist.');
-        }
-        if ($this->configlocks[$name]['default']) {
-            throw new cache_exception('You can not delete the default lock.');
-        }
-        foreach ($this->configstores as $store) {
-            if (isset($store['lock']) && $store['lock'] === $name) {
-                throw new cache_exception('You cannot delete a cache lock that is being used by a store.');
-            }
-        }
-        unset($this->configlocks[$name]);
         $this->config_save();
         return true;
     }
@@ -351,10 +272,6 @@ class cache_config_writer extends cache_config {
             'class' => $class,
             'default' => $this->configstores[$name]['default'] // Can't change the default.
         );
-        if (array_key_exists('lock', $configuration)) {
-            $this->configstores[$name]['lock'] = $configuration['lock'];
-            unset($this->configstores[$name]['configuration']['lock']);
-        }
         $this->config_save();
         return true;
     }
@@ -429,14 +346,6 @@ class cache_config_writer extends cache_config {
                 'mode' => cache_store::MODE_REQUEST,
                 'store' => 'default_request',
                 'sort' => -1
-            )
-        );
-        $writer->configlocks = array(
-            'default_file_lock' => array(
-                'name' => 'cachelock_file_default',
-                'type' => 'cachelock_file',
-                'dir' => 'filelocks',
-                'default' => true
             )
         );
 

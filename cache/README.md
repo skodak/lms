@@ -16,8 +16,6 @@ A definition:
             ),
             'requiredataguarantee' => false,          // Optional
             'requiremultipleidentifiers' => false,    // Optional
-            'requirelockingread' => false,            // Optional
-            'requirelockingwrite' => false,           // Optional
             'requiresearchable' => false,             // Optional
             'maxsize' => null,                        // Optional
             'overrideclass' => null,                  // Optional
@@ -100,7 +98,6 @@ Internally there is lots of magic going on. The important parts to know about ar
 * There are three core loaders. One for each application, session and request.
 * A custom loader can be used. It will be provided by the definition (thus cannot be used with ad hoc definitions) and must override the appropriate core loader
 * The loader handles ttl (time to live) for stores that don't natively support ttl.
-* The application loader handles locking for stores that don't natively support locking.
 
 ### Store
 The store is the bridge between the cache API and a cache solution.
@@ -108,7 +105,6 @@ Cache store plugins exist within moodle/cache/store.
 The administrator of a site can configure multiple instances of each plugin, the configuration gets initialised as a store for the loader when required in code (during construction of the loader).
 The following points highlight things you should know about stores.
 * A cache_store interface is used to define the requirements of a store plugin.
-* The store plugin can inherit the cache_is_lockable interface to handle its own locking.
 * The store plugin can inherit the cache_is_key_aware interface to handle is own has checks.
 * Store plugins inform the cache API about the things they support. Features can be required by a definition.
   * Data guarantee - Data is guaranteed to exist in the cache once it is set there. It is never cleaned up to free space or because it has not been recently used.
@@ -137,8 +133,6 @@ The following optional settings can also be defined:
 * requireidentifiers - Any identifiers the definition requires. Must be provided when creating the loader.
 * requiredataguarantee - If set to true then only stores that support data guarantee will be used.
 * requiremultipleidentifiers - If set to true then only stores that support multiple identifiers will be used.
-* requirelockingread - If set to true a lock will be acquired for reading. Don't use this setting unless you have a REALLY good reason to.
-* requirelockingwrite - If set to true a lock will be acquired before writing to the cache. Avoid this unless necessary.
 * requiresearchable - If set to true only stores that support key searching will be used for this definition. Its not recommended to use this unless absolutely unavoidable.
 * maxsize - This gives a cache an indication about the maximum items it should store. Cache stores don't have to use this, it is up to them to decide if its required.
 * overrideclass - If provided this class will be used for the loader. It must extend one of the core loader classes (based upon mode).

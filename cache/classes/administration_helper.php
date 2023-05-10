@@ -56,14 +56,12 @@ abstract class administration_helper extends cache_helper {
         $default = array();
         $instance = \cache_config::instance();
         $stores = $instance->get_all_stores();
-        $locks = $instance->get_locks();
         foreach ($stores as $name => $details) {
             $class = $details['class'];
             $store = false;
             if ($class::are_requirements_met()) {
                 $store = new $class($details['name'], $details['configuration']);
             }
-            $lock = (isset($details['lock'])) ? $locks[$details['lock']] : $instance->get_default_lock();
             $record = array(
                 'name' => $name,
                 'plugin' => $details['plugin'],
@@ -71,7 +69,6 @@ abstract class administration_helper extends cache_helper {
                 'isready' => $store ? $store->is_ready() : false,
                 'requirementsmet' => $class::are_requirements_met(),
                 'mappings' => 0,
-                'lock' => $lock,
                 'modes' => array(
                     cache_store::MODE_APPLICATION =>
                         ($class::get_supported_modes($return) & cache_store::MODE_APPLICATION) == cache_store::MODE_APPLICATION,
@@ -84,7 +81,6 @@ abstract class administration_helper extends cache_helper {
                     'multipleidentifiers' => $store ? $store->supports_multiple_identifiers() : false,
                     'dataguarantee' => $store ? $store->supports_data_guarantee() : false,
                     'nativettl' => $store ? $store->supports_native_ttl() : false,
-                    'nativelocking' => ($store instanceof \cache_is_lockable),
                     'keyawareness' => ($store instanceof \cache_is_key_aware),
                     'searchable' => ($store instanceof \cache_is_searchable)
                 ),
@@ -153,7 +149,6 @@ abstract class administration_helper extends cache_helper {
                     'multipleidentifiers' => ($class::get_supported_features() & cache_store::SUPPORTS_MULTIPLE_IDENTIFIERS),
                     'dataguarantee' => ($class::get_supported_features() & cache_store::SUPPORTS_DATA_GUARANTEE),
                     'nativettl' => ($class::get_supported_features() & cache_store::SUPPORTS_NATIVE_TTL),
-                    'nativelocking' => (in_array('cache_is_lockable', class_implements($class))),
                     'keyawareness' => (array_key_exists('cache_is_key_aware', class_implements($class))),
                 ),
                 'canaddinstance' => ($class::can_add_instance() && $class::are_requirements_met())
@@ -256,39 +251,6 @@ abstract class administration_helper extends cache_helper {
     }
 
     /**
-     * Returns an array summarising the locks available in the system.
-     *
-     * @return array array of lock summaries.
-     */
-    public static function get_lock_summaries(): array {
-        $locks = array();
-        $instance = cache_config::instance();
-        $stores = $instance->get_all_stores();
-        foreach ($instance->get_locks() as $lock) {
-            $default = !empty($lock['default']);
-            if ($default) {
-                $name = new \lang_string($lock['name'], 'cache');
-            } else {
-                $name = $lock['name'];
-            }
-            $uses = 0;
-            foreach ($stores as $store) {
-                if (!empty($store['lock']) && $store['lock'] === $lock['name']) {
-                    $uses++;
-                }
-            }
-            $lockdata = array(
-                'name' => $name,
-                'default' => $default,
-                'uses' => $uses,
-                'type' => get_string('pluginname', $lock['type'])
-            );
-            $locks[$lock['name']] = $lockdata;
-        }
-        return $locks;
-    }
-
-    /**
      * Given a sharing option hash this function returns an array of strings that can be used to describe it.
      *
      * @param int $sharingoption The sharing option hash to get strings for.
@@ -376,15 +338,6 @@ abstract class administration_helper extends cache_helper {
      * @return array array of actions.
      */
     public function get_definition_actions(\context $context, array $definitionsummary): array {
-        return array();
-    }
-
-    /**
-     * This function must be implemented to get addable locks.
-     *
-     * @return array array of locks that are addable.
-     */
-    public function get_addable_lock_options(): array {
         return array();
     }
 

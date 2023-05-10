@@ -1,5 +1,9 @@
 This files describes API changes in /cache/stores/* - cache store plugins.
 Information provided here is intended especially for developers.
+
+== 4.3 ==
+* All locking code was removed, the cache stores must behave in atomic way that does not require locking.
+
 === 4.2 ===
 * The memcached cachestore has been removed.
 * The mongodb cachestore has been removed.
