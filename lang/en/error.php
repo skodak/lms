@@ -37,6 +37,7 @@ $string['blockcannotread'] = 'Could not read data for blockid= {$a}';
 $string['blockdoesnotexist'] = 'This block does not exist';
 $string['blockdoesnotexistonpage'] = 'This block (id={$a->instanceid}) does not exist on this page ({$a->url}).';
 $string['blocknameconflict'] = 'Naming conflict: block {$a->name} has the same title with an existing block: {$a->conflict}!';
+$string['cachesemaphoretimeout'] = 'Cache semaphore timeout';
 $string['callbackrejectcomment'] = 'Comment callback rejected this comment.';
 $string['cannotaddcoursemodule'] = 'Could not add a new course module';
 $string['cannotaddcoursemoduletosection'] = 'Could not add the new course module to that section';

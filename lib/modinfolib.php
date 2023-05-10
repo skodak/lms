@@ -639,8 +639,11 @@ class course_modinfo {
         }
 
         $cachecoursemodinfo = cache::make('core', 'coursemodinfo');
-        $cachekey = $course->id;
-        $cachecoursemodinfo->acquire_lock($cachekey);
+        $cachekey = (string)$course->id;
+
+        $semaphore = new \core_course\cache\modinfo_semaphore($cachecoursemodinfo);
+        $semaphore->signal($cachekey);
+
         try {
             // Only actually do the build if it's still needed after getting the lock (not if
             // somebody else, who might have been holding the lock, built it already).
@@ -649,7 +652,7 @@ class course_modinfo {
                 $coursemodinfo = self::inner_build_course_cache($course);
             }
         } finally {
-            $cachecoursemodinfo->release_lock($cachekey);
+            $semaphore->clear_signal($cachekey);
         }
         return $coursemodinfo;
     }
@@ -667,9 +670,6 @@ class course_modinfo {
 
         $cachekey = $course->id;
         $cachecoursemodinfo = cache::make('core', 'coursemodinfo');
-        if (!$cachecoursemodinfo->check_lock_state($cachekey)) {
-            throw new coding_exception('You must acquire a lock on the course ID before calling inner_build_course_cache');
-        }
 
         // Always reload the course object from database to ensure we have the latest possible
         // value for cacherev.
@@ -696,9 +696,13 @@ class course_modinfo {
     public static function purge_course_section_cache_by_id(int $courseid, int $sectionid): void {
         $course = get_course($courseid);
         $cache = cache::make('core', 'coursemodinfo');
-        $cachekey = $course->id;
-        $cache->acquire_lock($cachekey);
+        $cachekey = (string)$course->id;
+
+        $semaphore = new \core_course\cache\modinfo_semaphore($cache);
+        $semaphore->signal($cachekey);
+
         $coursemodinfo = $cache->get_versioned($cachekey, $course->cacherev);
+
         if ($coursemodinfo !== false) {
             foreach ($coursemodinfo->sectioncache as $sectionno => $sectioncache) {
                 if ($sectioncache->id == $sectionid) {
@@ -709,7 +713,7 @@ class course_modinfo {
                 }
             }
         }
-        $cache->release_lock($cachekey);
+        $semaphore->clear_signal($cachekey);
     }
 
     /**
@@ -721,15 +725,19 @@ class course_modinfo {
     public static function purge_course_section_cache_by_number(int $courseid, int $sectionno): void {
         $course = get_course($courseid);
         $cache = cache::make('core', 'coursemodinfo');
-        $cachekey = $course->id;
-        $cache->acquire_lock($cachekey);
+        $cachekey = (string)$course->id;
+
+        $semaphore = new \core_course\cache\modinfo_semaphore($cache);
+        $semaphore->signal($cachekey);
+
         $coursemodinfo = $cache->get_versioned($cachekey, $course->cacherev);
+
         if ($coursemodinfo !== false && array_key_exists($sectionno, $coursemodinfo->sectioncache)) {
             $coursemodinfo->cacherev = -1;
             unset($coursemodinfo->sectioncache[$sectionno]);
             $cache->set_versioned($cachekey, $course->cacherev, $coursemodinfo);
         }
-        $cache->release_lock($cachekey);
+        $semaphore->clear_signal($cachekey);
     }
 
     /**
@@ -741,9 +749,13 @@ class course_modinfo {
     public static function purge_course_module_cache(int $courseid, int $cmid): void {
         $course = get_course($courseid);
         $cache = cache::make('core', 'coursemodinfo');
-        $cachekey = $course->id;
-        $cache->acquire_lock($cachekey);
+        $cachekey = (string)$course->id;
+
+        $semaphore = new \core_course\cache\modinfo_semaphore($cache);
+        $semaphore->signal($cachekey);
+
         $coursemodinfo = $cache->get_versioned($cachekey, $course->cacherev);
+
         $hascache = ($coursemodinfo !== false) && array_key_exists($cmid, $coursemodinfo->modinfo);
         if ($hascache) {
             $coursemodinfo->cacherev = -1;
@@ -751,7 +763,7 @@ class course_modinfo {
             $cache->set_versioned($cachekey, $course->cacherev, $coursemodinfo);
             $coursemodinfo = $cache->get_versioned($cachekey, $course->cacherev);
         }
-        $cache->release_lock($cachekey);
+        $semaphore->clear_signal($cachekey);
     }
 
     /**

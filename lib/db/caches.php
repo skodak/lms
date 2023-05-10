@@ -259,7 +259,6 @@ $definitions = array(
         'mode' => cache_store::MODE_APPLICATION,
         'simplekeys' => true,
         'canuselocalstore' => true,
-        'requirelockingbeforewrite' => true
     ),
     // This is the session user selections cache.
     // It's a special cache that is used to record user selections that should persist for the lifetime of the session.
