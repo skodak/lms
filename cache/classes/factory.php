@@ -100,12 +100,6 @@ class cache_factory {
     protected $definitions = array();
 
     /**
-     * An array of lock plugins.
-     * @var array
-     */
-    protected $lockplugins = array();
-
-    /**
      * The current state of the cache API.
      * @var int
      */
@@ -172,7 +166,6 @@ class cache_factory {
         $factory->configs = array();
         $factory->definitions = array();
         $factory->definitionstores = array();
-        $factory->lockplugins = array(); // MUST be null in order to force its regeneration.
         // Reset the state to uninitialised.
         $factory->state = self::STATE_UNINITIALISED;
     }
@@ -487,40 +480,6 @@ class cache_factory {
         $store = new cachestore_dummy();
         $store->initialise($definition);
         return $store;
-    }
-
-    /**
-     * Returns a lock instance ready for use.
-     *
-     * @param array $config
-     * @return cache_lock_interface
-     */
-    public function create_lock_instance(array $config) {
-        global $CFG;
-        if (!array_key_exists('name', $config) || !array_key_exists('type', $config)) {
-            throw new coding_exception('Invalid cache lock instance provided');
-        }
-        $name = $config['name'];
-        $type = $config['type'];
-        unset($config['name']);
-        unset($config['type']);
-
-        if (!isset($this->lockplugins[$type])) {
-            $pluginname = substr($type, 10);
-            $file = $CFG->dirroot."/cache/locks/{$pluginname}/lib.php";
-            if (file_exists($file) && is_readable($file)) {
-                require_once($file);
-            }
-            if (!class_exists($type)) {
-                throw new coding_exception('Invalid lock plugin requested.');
-            }
-            $this->lockplugins[$type] = $type;
-        }
-        if (!array_key_exists($type, $this->lockplugins)) {
-            throw new coding_exception('Invalid cache lock type.');
-        }
-        $class = $this->lockplugins[$type];
-        return new $class($name, $config);
     }
 
     /**

@@ -36,7 +36,7 @@ defined('MOODLE_INTERNAL') || die();
  * @copyright   2013 Adam Durana
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class cachestore_redis extends cache_store implements cache_is_key_aware, cache_is_lockable,
+class cachestore_redis extends cache_store implements cache_is_key_aware,
         cache_is_configurable, cache_is_searchable {
     /**
      * Compressor: none.
@@ -519,38 +519,6 @@ class cachestore_redis extends cache_store implements cache_is_key_aware, cache_
     }
 
     /**
-     * Tries to acquire a lock with a given name.
-     *
-     * @see cache_is_lockable
-     * @param string $key Name of the lock to acquire.
-     * @param string $ownerid Information to identify owner of lock if acquired.
-     * @return bool True if the lock was acquired, false if it was not.
-     */
-    public function acquire_lock($key, $ownerid) {
-        return $this->redis->setnx($key, $ownerid);
-    }
-
-    /**
-     * Checks a lock with a given name and owner information.
-     *
-     * @see cache_is_lockable
-     * @param string $key Name of the lock to check.
-     * @param string $ownerid Owner information to check existing lock against.
-     * @return mixed True if the lock exists and the owner information matches, null if the lock does not
-     *      exist, and false otherwise.
-     */
-    public function check_lock_state($key, $ownerid) {
-        $result = $this->redis->get($key);
-        if ($result === $ownerid) {
-            return true;
-        }
-        if ($result === false) {
-            return null;
-        }
-        return false;
-    }
-
-    /**
      * Finds all of the keys being used by this cache store instance.
      *
      * @return array of all keys in the hash as a numbered array.
@@ -574,21 +542,6 @@ class cachestore_redis extends cache_store implements cache_is_key_aware, cache_
             }
         }
         return $return;
-    }
-
-    /**
-     * Releases a given lock if the owner information matches.
-     *
-     * @see cache_is_lockable
-     * @param string $key Name of the lock to release.
-     * @param string $ownerid Owner information to use.
-     * @return bool True if the lock is released, false if it is not.
-     */
-    public function release_lock($key, $ownerid) {
-        if ($this->check_lock_state($key, $ownerid)) {
-            return ($this->redis->del($key) !== false);
-        }
-        return false;
     }
 
     /**

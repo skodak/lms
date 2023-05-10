@@ -134,16 +134,6 @@ class config_writer_test extends \advanced_testcase {
         $this->assertTrue($hasapplication, 'There is no mapping for the application mode.');
         $this->assertTrue($hassession, 'There is no mapping for the session mode.');
         $this->assertTrue($hasrequest, 'There is no mapping for the request mode.');
-
-        // Finally check config locks
-        $locks = $config->get_locks();
-        foreach ($locks as $lock) {
-            $this->assertArrayHasKey('name', $lock);
-            $this->assertArrayHasKey('type', $lock);
-            $this->assertArrayHasKey('default', $lock);
-        }
-        // There has to be at least the default lock.
-        $this->assertTrue(count($locks) > 0);
     }
 
     /**
@@ -169,7 +159,6 @@ class config_writer_test extends \advanced_testcase {
     public function test_add_edit_delete_plugin_instance() {
         $config = cache_config_writer::instance();
         $this->assertArrayNotHasKey('addplugintest', $config->get_all_stores());
-        $this->assertArrayNotHasKey('addplugintestwlock', $config->get_all_stores());
         // Add a default file instance.
         $config->add_store_instance('addplugintest', 'file');
 
@@ -177,17 +166,8 @@ class config_writer_test extends \advanced_testcase {
         $config = cache_config_writer::instance();
         $this->assertArrayHasKey('addplugintest', $config->get_all_stores());
 
-        // Add a store with a lock described.
-        $config->add_store_instance('addplugintestwlock', 'file', array('lock' => 'default_file_lock'));
-        $this->assertArrayHasKey('addplugintestwlock', $config->get_all_stores());
-
         $config->delete_store_instance('addplugintest');
         $this->assertArrayNotHasKey('addplugintest', $config->get_all_stores());
-        $this->assertArrayHasKey('addplugintestwlock', $config->get_all_stores());
-
-        $config->delete_store_instance('addplugintestwlock');
-        $this->assertArrayNotHasKey('addplugintest', $config->get_all_stores());
-        $this->assertArrayNotHasKey('addplugintestwlock', $config->get_all_stores());
 
         // Add a default file instance.
         $config->add_store_instance('storeconfigtest', 'file', array('test' => 'a', 'one' => 'two'));

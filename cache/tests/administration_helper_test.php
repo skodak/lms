@@ -129,10 +129,6 @@ class administration_helper_test extends \advanced_testcase {
         $this->assertArrayHasKey('supports', $summary);
         $this->assertArrayHasKey('canaddinstance', $summary);
 
-        $locksummaries = administration_helper::get_lock_summaries();
-        $this->assertIsArray($locksummaries);
-        $this->assertTrue(count($locksummaries) > 0);
-
         $mappings = administration_helper::get_default_mode_stores();
         $this->assertIsArray($mappings);
         $this->assertCount(3, $mappings);

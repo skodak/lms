@@ -101,14 +101,6 @@ class cache_config_testing extends cache_config_writer {
                 'sort' => -1
             )
         );
-        $writer->configlocks = array(
-            'default_file_lock' => array(
-                'name' => 'cachelock_file_default',
-                'type' => 'cachelock_file',
-                'dir' => 'filelocks',
-                'default' => true
-            )
-        );
 
         $factory = cache_factory::instance();
         // We expect the cache to be initialising presently. If its not then something has gone wrong and likely
@@ -245,7 +237,6 @@ class cache_config_testing extends cache_config_writer {
             'mappingsonly' => false,
             'class' => $nativettl ? 'cachestore_file' : 'cachestore_file_with_ttl_wrappers',
             'default' => false,
-            'lock' => 'cachelock_file_default'
         );
     }
 
@@ -263,7 +254,6 @@ class cache_config_testing extends cache_config_writer {
             'modes' => 2,
             'default' => true,
             'class' => 'cachestore_session',
-            'lock' => 'cachelock_file_default',
         );
     }
 

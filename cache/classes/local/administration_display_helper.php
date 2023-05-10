@@ -171,10 +171,8 @@ class administration_display_helper extends \core_cache\administration_helper {
             }
         }
 
-        $locks = $this->get_possible_locks_for_stores($plugindir, $plugin);
-
         $url = new \moodle_url('/cache/admin.php', array('action' => 'addstore'));
-        return new $class($url, array('plugin' => $plugin, 'store' => null, 'locks' => $locks));
+        return new $class($url, array('plugin' => $plugin, 'store' => null));
     }
 
     /**
@@ -209,13 +207,8 @@ class administration_display_helper extends \core_cache\administration_helper {
             }
         }
 
-        $locks = $this->get_possible_locks_for_stores($plugindir, $plugin);
-
         $url = new \moodle_url('/cache/admin.php', array('action' => 'editstore', 'plugin' => $plugin, 'store' => $store));
-        $editform = new $class($url, array('plugin' => $plugin, 'store' => $store, 'locks' => $locks));
-        if (isset($stores[$store]['lock'])) {
-            $editform->set_data(array('lock' => $stores[$store]['lock']));
-        }
+        $editform = new $class($url, array('plugin' => $plugin, 'store' => $store));
         // See if the cachestore is going to want to load data for the form.
         // If it has a customised add instance form then it is going to want to.
         $storeclass = 'cachestore_'.$plugin;
@@ -225,42 +218,6 @@ class administration_display_helper extends \core_cache\administration_helper {
             $storeclass::config_set_edit_form_data($editform, $storedata['configuration']);
         }
         return $editform;
-    }
-
-    /**
-     * Returns an array of suitable lock instances for use with this plugin, or false if the plugin handles locking itself.
-     *
-     * @param string $plugindir
-     * @param string $plugin
-     * @return array|false
-     */
-    protected function get_possible_locks_for_stores(string $plugindir, string $plugin) {
-        global $CFG; // Needed for includes.
-        $supportsnativelocking = false;
-        if (file_exists($plugindir.'/lib.php')) {
-            require_once($plugindir.'/lib.php');
-            $pluginclass = 'cachestore_'.$plugin;
-            if (class_exists($pluginclass)) {
-                $supportsnativelocking = array_key_exists('cache_is_lockable', class_implements($pluginclass));
-            }
-        }
-
-        if (!$supportsnativelocking) {
-            $config = \cache_config::instance();
-            $locks = array();
-            foreach ($config->get_locks() as $lock => $conf) {
-                if (!empty($conf['default'])) {
-                    $name = get_string($lock, 'cache');
-                } else {
-                    $name = $lock;
-                }
-                $locks[$lock] = $name;
-            }
-        } else {
-            $locks = false;
-        }
-
-        return $locks;
     }
 
     /**
@@ -279,81 +236,6 @@ class administration_display_helper extends \core_cache\administration_helper {
         }
         require_once($file);
         $class = 'cachestore_'.$data->plugin;
-        if (!class_exists($class)) {
-            throw new \coding_exception('Invalid cache plugin provided.');
-        }
-        if (array_key_exists('cache_is_configurable', class_implements($class))) {
-            return $class::config_get_configuration_array($data);
-        }
-        return array();
-    }
-
-    /**
-     * Returns an array of lock plugins for which we can add an instance.
-     *
-     * Suitable for use within an mform select element.
-     *
-     * @return array
-     */
-    public function get_addable_lock_options(): array {
-        $plugins = \core_component::get_plugin_list_with_class('cachelock', '', 'lib.php');
-        $options = array();
-        $len = strlen('cachelock_');
-        foreach ($plugins as $plugin => $class) {
-            $method = "$class::can_add_instance";
-            if (is_callable($method) && !call_user_func($method)) {
-                // Can't add an instance of this plugin.
-                continue;
-            }
-            $options[substr($plugin, $len)] = get_string('pluginname', $plugin);
-        }
-        return $options;
-    }
-
-    /**
-     * Gets the form to use when adding a lock instance.
-     *
-     * @param string $plugin
-     * @param array $lockplugin
-     * @return cache_lock_form
-     * @throws coding_exception
-     */
-    public function get_add_lock_form(string $plugin, array $lockplugin = null): \cache_lock_form {
-        global $CFG; // Needed for includes.
-        $plugins = \core_component::get_plugin_list('cachelock');
-        if (!array_key_exists($plugin, $plugins)) {
-            throw new \coding_exception('Invalid cache lock plugin requested when trying to create a form.');
-        }
-        $plugindir = $plugins[$plugin];
-        $class = 'cache_lock_form';
-        if (file_exists($plugindir.'/addinstanceform.php') && in_array('cache_is_configurable', class_implements($class))) {
-            require_once($plugindir.'/addinstanceform.php');
-            if (class_exists('cachelock_'.$plugin.'_addinstance_form')) {
-                $class = 'cachelock_'.$plugin.'_addinstance_form';
-                if (!array_key_exists('cache_lock_form', class_parents($class))) {
-                    throw new \coding_exception('Cache lock plugin add instance forms must extend cache_lock_form');
-                }
-            }
-        }
-        return new $class(null, array('lock' => $plugin));
-    }
-
-    /**
-     * Gets configuration data from a new lock instance form.
-     *
-     * @param string $plugin
-     * @param stdClass $data
-     * @return array
-     * @throws coding_exception
-     */
-    public function get_lock_configuration_from_data(string $plugin, \stdClass $data): array {
-        global $CFG;
-        $file = $CFG->dirroot.'/cache/locks/'.$plugin.'/lib.php';
-        if (!file_exists($file)) {
-            throw new \coding_exception('Invalid cache plugin provided. '.$file);
-        }
-        require_once($file);
-        $class = 'cachelock_'.$plugin;
         if (!class_exists($class)) {
             throw new \coding_exception('Invalid cache plugin provided.');
         }
@@ -408,15 +290,6 @@ class administration_display_helper extends \core_cache\administration_helper {
             case 'purge': // Purge a store cache.
                 $this->action_purge();
                 break;
-
-            case 'newlockinstance':
-                $forminfo = $this->action_newlockinstance();
-                break;
-
-            case 'deletelock':
-                // Deletes a lock instance.
-                $this->action_deletelock($action);
-                break;
         }
 
         return $forminfo;
@@ -455,12 +328,6 @@ class administration_display_helper extends \core_cache\administration_helper {
         } else if ($data = $mform->get_data()) {
             $config = $this->get_store_configuration_from_data($data);
             $writer = \cache_config_writer::instance();
-            unset($config['lock']);
-            foreach ($writer->get_locks() as $lock => $lockconfig) {
-                if ($lock == $data->lock) {
-                    $config['lock'] = $data->lock;
-                }
-            }
             $writer->add_store_instance($data->name, $data->plugin, $config);
             redirect($PAGE->url, get_string('addstoresuccess', 'cache', $storepluginsummaries[$plugin]['name']), 5);
         }
@@ -488,12 +355,6 @@ class administration_display_helper extends \core_cache\administration_helper {
             $config = $this->get_store_configuration_from_data($data);
             $writer = \cache_config_writer::instance();
 
-            unset($config['lock']);
-            foreach ($writer->get_locks() as $lock => $lockconfig) {
-                if ($lock == $data->lock) {
-                    $config['lock'] = $data->lock;
-                }
-            }
             $writer->edit_store_instance($data->name, $data->plugin, $config);
             redirect($PAGE->url, get_string('editstoresuccess', 'cache', $storepluginsummaries[$plugin]['name']), 5);
         }
@@ -703,75 +564,6 @@ class administration_display_helper extends \core_cache\administration_helper {
     }
 
     /**
-     * Performs the new lock instance action.
-     *
-     * @return array An array containing the new lock instance form.
-     */
-    public function action_newlockinstance(): array {
-        global $PAGE;
-
-        // Adds a new lock instance.
-        $lock = required_param('lock', PARAM_ALPHANUMEXT);
-        $mform = $this->get_add_lock_form($lock);
-        if ($mform->is_cancelled()) {
-            redirect($PAGE->url);
-        } else if ($data = $mform->get_data()) {
-            $factory = cache_factory::instance();
-            $config = $factory->create_config_instance(true);
-            $name = $data->name;
-            $data = $this->get_lock_configuration_from_data($lock, $data);
-            $config->add_lock_instance($name, $lock, $data);
-            redirect($PAGE->url, get_string('addlocksuccess', 'cache', $name), 5);
-        }
-
-        return array('form' => $mform);
-    }
-
-    /**
-     * Performs the delete lock action.
-     *
-     * @param string $action the action calling this function.
-     * @return void
-     */
-    public function action_deletelock(string $action) {
-        global $OUTPUT, $PAGE, $SITE;
-        $notifysuccess = true;
-        $locks = $this->get_lock_summaries();
-
-        $lock = required_param('lock', PARAM_ALPHANUMEXT);
-        $confirm = optional_param('confirm', false, PARAM_BOOL);
-        if (!array_key_exists($lock, $locks)) {
-            $notifysuccess = false;
-            $notifications[] = array(get_string('invalidlock', 'cache'), false);
-        } else if ($locks[$lock]['uses'] > 0) {
-            $notifysuccess = false;
-            $notifications[] = array(get_string('deletelockhasuses', 'cache'), false);
-        }
-        if ($notifysuccess) {
-            if (!$confirm) {
-                $title = get_string('confirmlockdeletion', 'cache');
-                $params = array('lock' => $lock, 'confirm' => 1, 'action' => $action, 'sesskey' => sesskey());
-                $url = new \moodle_url($PAGE->url, $params);
-                $button = new \single_button($url, get_string('deletelock', 'cache'));
-
-                $PAGE->set_title($title);
-                $PAGE->set_heading($SITE->fullname);
-                echo $OUTPUT->header();
-                echo $OUTPUT->heading($title);
-                $confirmation = get_string('deletelockconfirmation', 'cache', $lock);
-                echo $OUTPUT->confirm($confirmation, $button, $PAGE->url);
-                echo $OUTPUT->footer();
-                exit;
-            } else {
-                require_sesskey();
-                $writer = cache_config_writer::instance();
-                $writer->delete_lock_instance($lock);
-                redirect($PAGE->url, get_string('deletelocksuccess', 'cache'), 5);
-            }
-        }
-    }
-
-    /**
      * Outputs the main admin page by generating it through the renderer.
      *
      * @param \core_cache\output\renderer $renderer the renderer to use to generate the page.
@@ -785,13 +577,10 @@ class administration_display_helper extends \core_cache\administration_helper {
         $storeinstancesummaries = $this->get_store_instance_summaries();
         $definitionsummaries = $this->get_definition_summaries();
         $defaultmodestores = $this->get_default_mode_stores();
-        $locks = $this->get_lock_summaries();
 
         $html .= $renderer->store_plugin_summaries($storepluginsummaries);
         $html .= $renderer->store_instance_summariers($storeinstancesummaries, $storepluginsummaries);
         $html .= $renderer->definition_summaries($definitionsummaries, $context);
-        $html .= $renderer->lock_summaries($locks);
-        $html .= $renderer->additional_lock_actions();
 
         $applicationstore = join(', ', $defaultmodestores[cache_store::MODE_APPLICATION]);
         $sessionstore = join(', ', $defaultmodestores[cache_store::MODE_SESSION]);

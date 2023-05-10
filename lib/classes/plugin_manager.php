@@ -1813,10 +1813,6 @@ class core_plugin_manager {
                 'exportimscp', 'importhtml', 'print'
             ),
 
-            'cachelock' => array(
-                'file'
-            ),
-
             'cachestore' => array(
                 'file', 'session', 'static', 'apcu', 'redis'
             ),
