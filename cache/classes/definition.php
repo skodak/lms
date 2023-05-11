@@ -52,6 +52,9 @@ defined('MOODLE_INTERNAL') || die();
  *          [bool] If set to true then only stores that can guarantee data will remain available once set will be used.
  *     + requiremultipleidentifiers
  *          [bool] If set to true then only stores that support multiple identifiers will be used.
+ *     + nosubloaderkeyprefix
+ *          [bool] If set to true then get/set/delete operation on keys with given prefix are not propagated to sub-loaders,
+ *          this is not implemented in *_many* and *has* methods.
  *     + maxsize
  *          [int] If set this will be used as the maximum number of entries within the cache store for this definition.
  *          Its important to note that cache stores don't actually have to acknowledge this setting or maintain it as a hard limit.
@@ -180,6 +183,13 @@ class cache_definition {
      * @var bool
      */
     protected $requiremultipleidentifiers = false;
+
+    /**
+     * If set then operation on keys with given prefix are not propagated to sub loaders.
+     * @var bool
+     */
+    protected $nosubloaderkeyprefix = null;
+
     /**
      * Gets set to true if this definition requires searchable stores.
      * @since Moodle 2.4.4
@@ -327,6 +337,7 @@ class cache_definition {
         $requireidentifiers = array();
         $requiredataguarantee = false;
         $requiremultipleidentifiers = false;
+        $nosubloaderkeyprefix = null;
         $requiresearchable = ($mode === cache_store::MODE_SESSION) ? true : false;
         $maxsize = null;
         $overrideclass = null;
@@ -357,6 +368,10 @@ class cache_definition {
         }
         if (array_key_exists('requiremultipleidentifiers', $definition)) {
             $requiremultipleidentifiers = (bool)$definition['requiremultipleidentifiers'];
+        }
+
+        if (isset($definition['nosubloaderkeyprefix']) && strlen($definition['nosubloaderkeyprefix']) > 0) {
+            $nosubloaderkeyprefix = (string)$definition['nosubloaderkeyprefix'];
         }
 
         if (array_key_exists('requiresearchable', $definition)) {
@@ -482,6 +497,7 @@ class cache_definition {
         $cachedefinition->requireidentifiers = $requireidentifiers;
         $cachedefinition->requiredataguarantee = $requiredataguarantee;
         $cachedefinition->requiremultipleidentifiers = $requiremultipleidentifiers;
+        $cachedefinition->nosubloaderkeyprefix = $nosubloaderkeyprefix;
         $cachedefinition->requiresearchable = $requiresearchable;
         $cachedefinition->maxsize = $maxsize;
         $cachedefinition->overrideclass = $overrideclass;
@@ -674,6 +690,21 @@ class cache_definition {
      */
     public function require_multiple_identifiers() {
         return $this->requiremultipleidentifiers;
+    }
+
+    /**
+     * Returns true if this definition requires that the cache stores support multiple identifiers
+     *
+     * @since Moodle 4.3
+     * @param string|int $key
+     * @return bool
+     */
+    public function is_subloader_ignored($key): bool {
+        if ($this->nosubloaderkeyprefix === null) {
+            return false;
+        }
+
+        return (strpos((string)$key, $this->nosubloaderkeyprefix) === 0);
     }
 
     /**

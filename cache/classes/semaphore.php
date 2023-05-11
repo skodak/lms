@@ -27,6 +27,10 @@ use cache_store;
  * Semaphores are intended to be used with local cache stores,
  * they are not compatible with MUC static caching.
  *
+ * The cache definition has to include 'nosubloaderkeyprefix'
+ * option with value from constructor, otherwise local cache loader
+ * stacking will not work properly.
+ *
  * @since Moodle 4.3
  *
  * @copyright  2023 Petr Skoda

@@ -573,7 +573,10 @@ class cache implements cache_loader {
             if ($this->perfdebug) {
                 cache_helper::record_cache_miss($this->store, $this->definition);
             }
-            if ($this->loader !== false) {
+            if ($this->definition->is_subloader_ignored($key)) {
+                // Do not use subloaders and datasources, likely a local cache semaphore.
+                $result = false;
+            } else if ($this->loader !== false) {
                 // We must pass the original (unparsed) key to the next loader in the chain.
                 // The next loader will parse the key as it sees fit. It may be parsed differently
                 // depending upon the capabilities of the store associated with the loader.
@@ -825,7 +828,7 @@ class cache implements cache_loader {
      * @return bool True on success, false otherwise.
      */
     protected function set_implementation($key, int $version, $data, bool $setparents = true): bool {
-        if ($this->loader !== false && $setparents) {
+        if ($this->loader !== false && $setparents && !$this->definition->is_subloader_ignored($key)) {
             // We have a loader available set it there as well.
             // We have to let the loader do its own parsing of data as it may be unique.
             if ($version === self::VERSION_NONE) {
@@ -1129,7 +1132,7 @@ class cache implements cache_loader {
      */
     public function delete($key, $recurse = true) {
         $this->static_acceleration_delete($key);
-        if ($recurse && $this->loader !== false) {
+        if ($recurse && $this->loader !== false && !$this->definition->is_subloader_ignored($key)) {
             // Delete from the bottom of the stack first.
             $this->loader->delete($key, $recurse);
         }

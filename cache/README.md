@@ -133,6 +133,7 @@ The following optional settings can also be defined:
 * requireidentifiers - Any identifiers the definition requires. Must be provided when creating the loader.
 * requiredataguarantee - If set to true then only stores that support data guarantee will be used.
 * requiremultipleidentifiers - If set to true then only stores that support multiple identifiers will be used.
+* nosubloaderkeyprefix -If set to true then get/set/delete operation on keys with given prefix are not propagated to sub-loaders, this is not implemented in _many and has methods.
 * requiresearchable - If set to true only stores that support key searching will be used for this definition. Its not recommended to use this unless absolutely unavoidable.
 * maxsize - This gives a cache an indication about the maximum items it should store. Cache stores don't have to use this, it is up to them to decide if its required.
 * overrideclass - If provided this class will be used for the loader. It must extend one of the core loader classes (based upon mode).
